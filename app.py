@@ -20,7 +20,7 @@ from flask import (
     url_for,
 )
 from openpyxl import Workbook, load_workbook
-from sqlalchemy import create_engine, func, or_
+from sqlalchemy import create_engine, func, inspect, or_
 from sqlalchemy.orm import object_session, scoped_session, sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
 from PIL import Image
@@ -48,24 +48,34 @@ def create_app():
     (STATIC_DIR / "img").mkdir(parents=True, exist_ok=True)
     load_hq_settings()
 
-    engine = create_engine(Config.SQLALCHEMY_DATABASE_URI, echo=False, future=True)
+    db_uri = Config.SQLALCHEMY_DATABASE_URI
+    engine_kwargs = {"echo": False, "future": True}
+    if db_uri.startswith("postgresql"):
+        engine_kwargs.update(pool_pre_ping=True)
+    elif db_uri.startswith("sqlite"):
+        engine_kwargs["connect_args"] = {"check_same_thread": False}
+    engine = create_engine(db_uri, **engine_kwargs)
     Session = scoped_session(sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False))
     Base.metadata.create_all(engine)
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
     with engine.begin() as conn:
-        item_cols = {r[1] for r in conn.exec_driver_sql("PRAGMA table_info(invoice_items)").fetchall()}
-        for name, ddl in [
-            ("training_id", "ALTER TABLE invoice_items ADD COLUMN training_id INTEGER"),
-            ("learners", "ALTER TABLE invoice_items ADD COLUMN learners TEXT DEFAULT ''"),
-            ("instructor", "ALTER TABLE invoice_items ADD COLUMN instructor VARCHAR(100) DEFAULT ''"),
-            ("period_start", "ALTER TABLE invoice_items ADD COLUMN period_start DATE"),
-            ("period_end", "ALTER TABLE invoice_items ADD COLUMN period_end DATE"),
-            ("learner_roster", "ALTER TABLE invoice_items ADD COLUMN learner_roster TEXT DEFAULT ''"),
-        ]:
-            if name not in item_cols:
-                conn.exec_driver_sql(ddl)
-        train_cols = {r[1] for r in conn.exec_driver_sql("PRAGMA table_info(trainings)").fetchall()}
-        if "learners" not in train_cols:
-            conn.exec_driver_sql("ALTER TABLE trainings ADD COLUMN learners TEXT DEFAULT ''")
+        if "invoice_items" in table_names:
+            item_cols = {c["name"] for c in inspector.get_columns("invoice_items")}
+            for name, ddl in [
+                ("training_id", "ALTER TABLE invoice_items ADD COLUMN training_id INTEGER"),
+                ("learners", "ALTER TABLE invoice_items ADD COLUMN learners TEXT DEFAULT ''"),
+                ("instructor", "ALTER TABLE invoice_items ADD COLUMN instructor VARCHAR(100) DEFAULT ''"),
+                ("period_start", "ALTER TABLE invoice_items ADD COLUMN period_start DATE"),
+                ("period_end", "ALTER TABLE invoice_items ADD COLUMN period_end DATE"),
+                ("learner_roster", "ALTER TABLE invoice_items ADD COLUMN learner_roster TEXT DEFAULT ''"),
+            ]:
+                if name not in item_cols:
+                    conn.exec_driver_sql(ddl)
+        if "trainings" in table_names:
+            train_cols = {c["name"] for c in inspector.get_columns("trainings")}
+            if "learners" not in train_cols:
+                conn.exec_driver_sql("ALTER TABLE trainings ADD COLUMN learners TEXT DEFAULT ''")
 
     with Session() as db:
         seed_if_empty(db)

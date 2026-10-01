@@ -10,12 +10,20 @@ STATIC_DIR = BASE_DIR / "static"
 STAMP_PATH = INSTANCE_DIR / "pgu_stamp.png"
 
 
+def resolve_database_uri() -> str:
+    raw = (os.environ.get("DATABASE_URL") or "").strip()
+    if not raw:
+        return f"sqlite:///{(INSTANCE_DIR / 'pgu_invoices.db').as_posix()}"
+    if raw.startswith("postgres://"):
+        raw = "postgresql+psycopg2://" + raw[len("postgres://") :]
+    elif raw.startswith("postgresql://"):
+        raw = "postgresql+psycopg2://" + raw[len("postgresql://") :]
+    return raw
+
+
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "pgu-invoice-portal-dev-key-2026")
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL",
-        f"sqlite:///{(INSTANCE_DIR / 'pgu_invoices.db').as_posix()}",
-    )
+    SQLALCHEMY_DATABASE_URI = resolve_database_uri()
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
     DATE_FORMAT = "%Y-%m-%d"
 
