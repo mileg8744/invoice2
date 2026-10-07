@@ -99,28 +99,28 @@ def generate_invoice_pdf(invoice, output_path: Path) -> Path:
     width, height = A4
     margin = 18 * mm
     content_w = width - 2 * margin
-    header_h = 23 * mm
+    header_h = 26 * mm
 
     c.setFillColor(NAVY)
     c.rect(0, height - header_h, width, header_h, fill=1, stroke=0)
 
-    _draw_posco_ci(c, margin, height - 13.6 * mm, 7.6 * mm)
+    _draw_posco_ci(c, margin, height - 17.6 * mm, 12.4 * mm)
     c.setFillColor(white)
     c.setFont(FONT, 7)
-    c.drawString(margin, height - 18.8 * mm, "POSCO Group University  |  Education Service")
+    c.drawString(margin, height - 22.2 * mm, "Education Service")
 
     c.setFont(FONT_BOLD, 18)
-    c.drawRightString(width - margin, height - 9.2 * mm, "INVOICE")
+    c.drawRightString(width - margin, height - 10.4 * mm, "INVOICE")
     c.setFont(FONT, 7.5)
     date_label = "Document Date"
     ref_label = "Ref. No."
     date_val = invoice.document_date.strftime("%Y-%m-%d") if invoice.document_date else ""
     label_x = width - margin - 42 * mm
-    c.drawString(label_x, height - 14.6 * mm, date_label)
-    c.drawString(label_x, height - 18.8 * mm, ref_label)
+    c.drawString(label_x, height - 16.2 * mm, date_label)
+    c.drawString(label_x, height - 20.6 * mm, ref_label)
     c.setFont(FONT_BOLD, 8)
-    c.drawRightString(width - margin, height - 14.6 * mm, date_val)
-    c.drawRightString(width - margin, height - 18.8 * mm, invoice.invoice_no)
+    c.drawRightString(width - margin, height - 16.2 * mm, date_val)
+    c.drawRightString(width - margin, height - 20.6 * mm, invoice.invoice_no)
 
     y = height - header_h - 12 * mm
     col_gap = 10 * mm
@@ -167,7 +167,7 @@ def generate_invoice_pdf(invoice, output_path: Path) -> Path:
     band_h = 13 * mm
     c.setFillColor(BAND)
     c.roundRect(margin, y - band_h, content_w, band_h, 1.5, fill=1, stroke=0)
-    fx_text = f"1 {invoice.currency} = {float(invoice.exchange_rate):,.4f} KRW"
+    fx_text = f"1 {invoice.currency} = {float(invoice.exchange_rate):,.2f} KRW"
     meta = [
         ("CURRENCY", invoice.currency or ""),
         ("FX RATE", fx_text),

@@ -46,8 +46,8 @@ body {
 }
 .brand { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 18px; }
 .brand-lockup { flex: 1; min-width: 0; }
-.brand-ci { height: 22px; width: auto; max-width: 148px; display: block; margin-bottom: 8px; }
-.login-ci { height: 36px; max-width: 210px; }
+.brand-ci { height: 38px; width: auto; max-width: 188px; display: block; margin-bottom: 8px; }
+.login-ci { height: 56px; max-width: 280px; margin-bottom: 16px; }
 .sidebar-hide-btn,
 .sidebar-show-btn,
 .sidebar-restore-tab {
@@ -228,7 +228,7 @@ html.sidebar-collapsed .sidebar-restore-tab { display: inline-flex; }
   border-radius: 18px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.25);
 }
 .login-hero { background: var(--navy); color: #fff; padding: 40px 36px; }
-.login-hero h1 { font-size: 28px; margin: 16px 0 8px; }
+.login-hero p { margin: 0; color: #c9d7ea; }
 .login-hero ul { padding-left: 18px; color: #c9d7ea; }
 .login-card { padding: 36px; }
 .login-card h2 { color: var(--navy); margin-bottom: 16px; }

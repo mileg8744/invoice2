@@ -170,6 +170,13 @@ def create_app():
         except (TypeError, ValueError):
             return "0.00"
 
+    @app.template_filter("rate")
+    def rate_filter(v):
+        try:
+            return f"{float(v):,.2f}"
+        except (TypeError, ValueError):
+            return "0.00"
+
     @app.template_filter("ymd")
     def ymd_filter(v):
         if not v:
@@ -287,6 +294,14 @@ def create_app():
         try:
             return int(float(str(value).replace(",", "").strip()))
         except ValueError:
+            return default
+
+    def _as_rate(value, default=0.0):
+        if value in (None, ""):
+            return default
+        try:
+            return round(float(str(value).replace(",", "").strip()), 2)
+        except (TypeError, ValueError):
             return default
 
     def flash_mail_result(mail, success_key, commit=False):
@@ -1126,13 +1141,13 @@ def create_app():
         currency, rate, rate_date = latest_fx(db, row)
         return {
             "fx_currency": currency or "USD",
-            "fx_rate": rate,
+            "fx_rate": f"{float(rate):.2f}" if rate not in (None, "") else "",
             "fx_rate_date": (rate_date or date.today()).strftime("%Y-%m-%d") if hasattr(rate_date, "strftime") else str(rate_date or date.today())[:10],
         }
 
     def parse_bulk_fx(form):
         try:
-            rate = float(form.get("exchange_rate") or 0)
+            rate = _as_rate(form.get("exchange_rate") or 0)
         except (TypeError, ValueError):
             rate = 0
         currency = (form.get("currency") or "USD").upper()
@@ -1510,7 +1525,7 @@ def create_app():
                     i.unit_price_krw,
                     i.amount_krw,
                     i.currency,
-                    i.exchange_rate,
+                    f"{float(i.exchange_rate):.2f}",
                     i.rate_date.strftime("%Y-%m-%d"),
                     f"{float(i.amount_fx):.2f}",
                     i.vat_rate,
@@ -1539,7 +1554,7 @@ def create_app():
         inv.currency = (form.get("currency") or "USD").upper()
         if inv.currency not in ("USD", "EUR"):
             inv.currency = "USD"
-        inv.exchange_rate = float(form.get("exchange_rate") or 0)
+        inv.exchange_rate = _as_rate(form.get("exchange_rate") or 0)
         inv.rate_date = _as_date(form.get("rate_date") or date.today())
         inv.document_date = _as_date(form.get("document_date") or date.today())
         inv.vat_rate = 0.0
@@ -2061,7 +2076,7 @@ def create_app():
         currency = (request.form.get("currency") or "USD").upper()
         if currency not in ("USD", "EUR"):
             currency = "USD"
-        rate = float(request.form.get("exchange_rate") or 0)
+        rate = _as_rate(request.form.get("exchange_rate") or 0)
         rate_date = _as_date(request.form.get("rate_date") or date.today())
         if rate <= 0:
             flash(t("required"), "danger")

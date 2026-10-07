@@ -8,7 +8,7 @@ PDF_DIR = BASE_DIR / "generated_pdfs"
 OUTBOX_DIR = BASE_DIR / "outbox"
 STATIC_DIR = BASE_DIR / "static"
 STAMP_PATH = INSTANCE_DIR / "pgu_stamp.png"
-POSCO_CI_PATH = STATIC_DIR / "img" / "posco_ci_white.png"
+POSCO_CI_PATH = STATIC_DIR / "img" / "pgu_ci_white.png"
 
 
 def resolve_database_uri() -> str:

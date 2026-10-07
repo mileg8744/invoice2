@@ -20,7 +20,7 @@
       <option>USD</option>
       <option>EUR</option>
     </select>
-    <input class="form-control" style="max-width:140px" name="exchange_rate" placeholder="{{ t('rate') }}" required>
+    <input class="form-control" style="max-width:140px" type="number" step="0.01" min="0.01" name="exchange_rate" placeholder="{{ t('rate') }}" required>
     <input class="form-control" style="max-width:160px" type="date" name="rate_date" value="{{ today }}" required>
     <input class="form-control" type="file" name="file" accept=".xlsx,.xls,.csv" required>
     <button class="btn btn-navy" type="submit">{{ t('upload') }}</button>

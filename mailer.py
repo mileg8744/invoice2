@@ -62,14 +62,13 @@ def send_invoice_email(
     if POSCO_CI_PATH.exists():
         ci_b64 = b64encode(POSCO_CI_PATH.read_bytes()).decode("ascii")
         ci_img = (
-            f'<img src="data:image/png;base64,{ci_b64}" alt="POSCO" '
-            'height="22" style="height:22px;display:block;margin-bottom:8px">'
+            f'<img src="data:image/png;base64,{ci_b64}" alt="POSCO Group University" '
+            'height="36" style="height:36px;display:block;margin-bottom:10px">'
         )
     body_html = f"""
     <div style="font-family:Calibri,'Segoe UI',Arial,sans-serif;color:#1b2a4e;line-height:1.5">
       <div style="background:#002060;color:#fff;padding:16px 20px">
         {ci_img}
-        <div style="font-size:12px;letter-spacing:1px">POSCO GROUP UNIVERSITY</div>
         <div style="font-size:20px;font-weight:700">{headline}</div>
       </div>
       <div style="padding:20px;background:#F0F4F8">

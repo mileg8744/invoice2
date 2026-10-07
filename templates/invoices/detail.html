@@ -60,7 +60,7 @@
       <dt>{{ t('qty') }}</dt><dd>{{ row.qty }}</dd>
       <dt>{{ t('unit_krw') }}</dt><dd>{{ row.unit_price_krw | krw }}</dd>
       <dt>{{ t('amount_krw') }}</dt><dd>{{ row.amount_krw | krw }}</dd>
-      <dt>{{ t('currency') }} / {{ t('rate') }}</dt><dd>{{ row.currency }} · {{ row.exchange_rate }} ({{ row.rate_date | ymd }})</dd>
+      <dt>{{ t('currency') }} / {{ t('rate') }}</dt><dd>{{ row.currency }} · {{ row.exchange_rate | rate }} ({{ row.rate_date | ymd }})</dd>
       <dt>{{ t('net_due') }}</dt><dd><b>{{ row.currency }} {{ row.amount_fx | fx }}</b></dd>
       <dt>{{ t('vat') }}</dt><dd>{{ t('exempt') }}</dd>
     </dl>
