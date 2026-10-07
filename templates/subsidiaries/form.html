@@ -38,6 +38,10 @@
         <label class="form-label">{{ t('address_en') }}</label>
         {{ address_en_field('address_en', row.address_en if row else '', 2, false, row.country_en if row else '') }}
       </div>
+      <div class="col-12">
+        <label class="form-label">{{ t('extra_info') }}</label>
+        <textarea class="form-control" name="notes" rows="3" placeholder="{{ t('extra_info_hint') }}">{{ row.notes if row else '' }}</textarea>
+      </div>
       <div class="col-md-8">
         <label class="form-label">{{ t('emails') }}</label>
         <textarea class="form-control" name="emails" rows="3" placeholder="{{ t('emails_hint') }}">{{ row.emails if row else '' }}</textarea>

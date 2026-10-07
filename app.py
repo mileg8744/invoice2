@@ -57,9 +57,9 @@ def create_app():
     engine = create_engine(db_uri, **engine_kwargs)
     Session = scoped_session(sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False))
     Base.metadata.create_all(engine)
-    inspector = inspect(engine)
-    table_names = set(inspector.get_table_names())
     with engine.begin() as conn:
+        inspector = inspect(conn)
+        table_names = set(inspector.get_table_names())
         if "invoice_items" in table_names:
             item_cols = {c["name"] for c in inspector.get_columns("invoice_items")}
             for name, ddl in [
@@ -79,6 +79,10 @@ def create_app():
             if "title_en" not in train_cols:
                 conn.exec_driver_sql("ALTER TABLE trainings ADD COLUMN title_en VARCHAR(300) DEFAULT ''")
                 conn.exec_driver_sql("UPDATE trainings SET title_en = title WHERE title_en IS NULL OR title_en = ''")
+        if "subsidiaries" in table_names:
+            sub_cols = {c["name"] for c in inspector.get_columns("subsidiaries")}
+            if "notes" not in sub_cols:
+                conn.exec_driver_sql("ALTER TABLE subsidiaries ADD COLUMN notes TEXT DEFAULT ''")
 
     with Session() as db:
         seed_if_empty(db)
@@ -739,6 +743,7 @@ def create_app():
         sub.name_ko = (form.get("name_ko") or "").strip()
         sub.name_en = (form.get("name_en") or "").strip()
         sub.address_en = (form.get("address_en") or "").strip()
+        sub.notes = (form.get("notes") or "").strip()
         emails = (form.get("emails") or "").replace("\r", "")
         sub.emails = "; ".join(parse_emails(emails) or [e.strip() for e in emails.replace("\n", ";").split(";") if e.strip()])
         sub.phone = (form.get("phone") or "").strip()
@@ -866,6 +871,7 @@ def create_app():
             "name_ko",
             "name_en",
             "address_en",
+            "notes",
             "emails",
             "phone",
             "status",
@@ -882,6 +888,7 @@ def create_app():
                     row.name_ko,
                     row.name_en,
                     row.address_en,
+                    getattr(row, "notes", "") or "",
                     row.emails,
                     row.phone,
                     row.status,
@@ -912,6 +919,7 @@ def create_app():
             "name_ko",
             "name_en",
             "address_en",
+            "notes",
             "emails",
             "phone",
             "status",
@@ -927,6 +935,7 @@ def create_app():
                 "샘플법인",
                 "POSCO Sample Co., Ltd.",
                 "1 Sample Street, City",
+                "Tax ID / extra remarks",
                 "finance@example.com; training@example.com",
                 "+82-32-200-0000",
                 "active",
@@ -975,6 +984,7 @@ def create_app():
                     "name_ko": str(norm_key(row, "name_ko", "법인명") or getattr(sub, "name_ko", "") or ""),
                     "name_en": str(norm_key(row, "name_en", "영문법인명", "official_name") or getattr(sub, "name_en", "") or ""),
                     "address_en": str(norm_key(row, "address_en", "공식영문주소") or getattr(sub, "address_en", "") or ""),
+                    "notes": str(norm_key(row, "notes", "기타정보", "비고") or getattr(sub, "notes", "") or ""),
                     "emails": str(norm_key(row, "emails", "이메일") or getattr(sub, "emails", "") or ""),
                     "phone": str(norm_key(row, "phone", "연락처") or getattr(sub, "phone", "") or ""),
                     "status": str(norm_key(row, "status", "계정상태") or getattr(sub, "status", "active") or "active"),
@@ -1008,8 +1018,9 @@ def create_app():
             parsed = parse_emails(emails)
             row.emails = "; ".join(parsed) if parsed else emails.replace("\n", "; ")
             row.phone = (request.form.get("phone") or "").strip()
+            row.notes = (request.form.get("notes") or "").strip()
             row.updated_at = utcnow()
-            log_action(db, "subsidiary", row.code, "SELF_UPDATE", "address/emails/phone")
+            log_action(db, "subsidiary", row.code, "SELF_UPDATE", "address/emails/phone/notes")
             db.commit()
             flash(t("saved"), "success")
             return redirect(url_for("profile"))

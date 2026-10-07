@@ -49,6 +49,7 @@ class Subsidiary(Base):
     name_ko: Mapped[str] = mapped_column(String(200), nullable=False)
     name_en: Mapped[str] = mapped_column(String(200), nullable=False)
     address_en: Mapped[str] = mapped_column(Text, default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
     emails: Mapped[str] = mapped_column(Text, default="")
     phone: Mapped[str] = mapped_column(String(80), default="")
     status: Mapped[str] = mapped_column(String(20), default="active")

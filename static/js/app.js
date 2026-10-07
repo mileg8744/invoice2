@@ -99,7 +99,7 @@ function bindAddressSearch() {
     const input = box.querySelector(".js-addr-q");
     const results = box.querySelector(".js-addr-results");
     const target = box.querySelector(".js-addr-target");
-    const daumBtn = box.querySelector(".js-addr-daum");
+    const googleBtn = box.querySelector(".js-addr-google");
     const noneText = box.getAttribute("data-empty") || "검색 결과가 없습니다.";
     const countryInput = box.closest("form")?.querySelector('[name="country_en"]');
     let timer = null;
@@ -159,6 +159,26 @@ function bindAddressSearch() {
       }
     }
 
+    function searchPlaces(query, done) {
+      if (googleReady && window.google.maps.places.AutocompleteService) {
+        const svc = new window.google.maps.places.AutocompleteService();
+        svc.getPlacePredictions({ input: query, types: ["geocode"] }, (preds) => {
+          if (!preds || !preds.length) {
+            done(null);
+            return;
+          }
+          done(
+            preds.map((p) => ({
+              label: p.description,
+              detail: (p.structured_formatting && p.structured_formatting.secondary_text) || "",
+            }))
+          );
+        });
+        return;
+      }
+      done(null);
+    }
+
     if (googleReady && input) {
       const ac = new window.google.maps.places.Autocomplete(input, {
         fields: ["formatted_address", "address_components", "name"],
@@ -173,28 +193,28 @@ function bindAddressSearch() {
           target.focus();
         }
       });
-    } else {
-      input?.addEventListener("input", () => {
-        const query = (input.value || "").trim();
-        clearTimeout(timer);
-        if (query.length < 3) {
-          hideResults();
-          return;
-        }
-        timer = setTimeout(() => runSearch(query), 350);
-      });
     }
+
+    input?.addEventListener("input", () => {
+      const query = (input.value || "").trim();
+      clearTimeout(timer);
+      if (query.length < 3) {
+        hideResults();
+        return;
+      }
+      timer = setTimeout(() => {
+        searchPlaces(query, (items) => {
+          if (items) showItems(items);
+          else runSearch(query);
+        });
+      }, 350);
+    });
 
     input?.addEventListener("keydown", (ev) => {
       if (ev.key === "Enter") {
         ev.preventDefault();
         clearTimeout(timer);
-        const query = (input.value || "").trim();
-        if (!googleReady && query.length >= 3) runSearch(query);
-        const country = (countryInput?.value || box.getAttribute("data-country") || "").toLowerCase();
-        if (/^\d{5}$/.test(query) && /korea|대한민국|한국/.test(country)) {
-          daumBtn?.click();
-        }
+        googleBtn?.click();
       }
       if (ev.key === "Escape") hideResults();
     });
@@ -203,18 +223,15 @@ function bindAddressSearch() {
       if (!box.contains(ev.target)) hideResults();
     });
 
-    daumBtn?.addEventListener("click", () => {
-      loadDaumPostcode(() => {
-        new window.daum.Postcode({
-          oncomplete(data) {
-            const english = data.roadAddressEnglish || data.addressEnglish || data.jibunAddressEnglish || "";
-            const zip = data.zonecode || "";
-            const building = data.buildingName ? `, ${data.buildingName}` : "";
-            target.value = [english + building, zip].filter(Boolean).join("\n");
-            input.value = "";
-            hideResults();
-          },
-        }).open();
+    googleBtn?.addEventListener("click", () => {
+      const query = (input?.value || "").trim();
+      if (query.length < 3) {
+        input?.focus();
+        return;
+      }
+      searchPlaces(query, (items) => {
+        if (items) showItems(items);
+        else runSearch(query);
       });
     });
   });
@@ -228,19 +245,3 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
-function loadDaumPostcode(done) {
-  if (window.daum && window.daum.Postcode) {
-    done();
-    return;
-  }
-  const existing = document.getElementById("daum-postcode-sdk");
-  if (existing) {
-    existing.addEventListener("load", () => done(), { once: true });
-    return;
-  }
-  const script = document.createElement("script");
-  script.id = "daum-postcode-sdk";
-  script.src = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
-  script.onload = () => done();
-  document.head.appendChild(script);
-}

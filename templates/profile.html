@@ -21,6 +21,10 @@
       <label class="form-label">{{ t('phone') }}</label>
       <input class="form-control" name="phone" value="{{ row.phone }}">
     </div>
+    <div class="mb-3">
+      <label class="form-label">{{ t('extra_info') }}</label>
+      <textarea class="form-control" name="notes" rows="3" placeholder="{{ t('extra_info_hint') }}">{{ row.notes or '' }}</textarea>
+    </div>
     <button class="btn btn-navy" type="submit">{{ t('save_profile') }}</button>
   </form>
 </div>
