@@ -45,7 +45,9 @@ body {
   height: 100vh;
 }
 .brand { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 18px; }
-.brand > div:nth-child(2) { flex: 1; min-width: 0; }
+.brand-lockup { flex: 1; min-width: 0; }
+.brand-ci { height: 22px; width: auto; max-width: 148px; display: block; margin-bottom: 8px; }
+.login-ci { height: 36px; max-width: 210px; }
 .sidebar-hide-btn,
 .sidebar-show-btn,
 .sidebar-restore-tab {
@@ -74,15 +76,6 @@ html.sidebar-collapsed .sidebar {
 html.sidebar-collapsed .main { width: 100%; }
 html.sidebar-collapsed .sidebar-show-btn,
 html.sidebar-collapsed .sidebar-restore-tab { display: inline-flex; }
-.mark {
-  width: 42px; height: 42px; border-radius: 10px;
-  background: linear-gradient(135deg, #0a3d91, #4da3ff);
-  display: grid; place-items: center;
-  font-family: Pretendard, Nunito, sans-serif;
-  font-weight: 700; font-size: 22px;
-  border: 1px solid rgba(197,164,110,.6);
-}
-.mark.lg { width: 64px; height: 64px; font-size: 32px; }
 .brand-kicker { font-size: 11px; letter-spacing: .08em; color: #b9c9de; text-transform: uppercase; }
 .brand-title { font-weight: 700; font-size: 16px; }
 .role-chip {

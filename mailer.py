@@ -2,10 +2,11 @@
 
 from datetime import datetime
 from email.message import EmailMessage
+from base64 import b64encode
 import smtplib
 from pathlib import Path
 
-from config import Config, OUTBOX_DIR
+from config import Config, OUTBOX_DIR, POSCO_CI_PATH
 
 
 def parse_emails(raw: str) -> list[str]:
@@ -57,9 +58,17 @@ def send_invoice_email(
         f"<tr><td>{it.description}</td><td>{(it.period_start or invoice.period_start).strftime('%Y-%m-%d')} ~ {(it.period_end or invoice.period_end).strftime('%Y-%m-%d')}</td><td>{it.qty}</td></tr>"
         for it in (invoice.items or [])
     ) or f"<tr><td>{invoice.education_name}</td><td>{period}</td><td>{invoice.qty}</td></tr>"
+    ci_img = ""
+    if POSCO_CI_PATH.exists():
+        ci_b64 = b64encode(POSCO_CI_PATH.read_bytes()).decode("ascii")
+        ci_img = (
+            f'<img src="data:image/png;base64,{ci_b64}" alt="POSCO" '
+            'height="22" style="height:22px;display:block;margin-bottom:8px">'
+        )
     body_html = f"""
     <div style="font-family:Calibri,'Segoe UI',Arial,sans-serif;color:#1b2a4e;line-height:1.5">
       <div style="background:#002060;color:#fff;padding:16px 20px">
+        {ci_img}
         <div style="font-size:12px;letter-spacing:1px">POSCO GROUP UNIVERSITY</div>
         <div style="font-size:20px;font-weight:700">{headline}</div>
       </div>
