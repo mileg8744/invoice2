@@ -11,6 +11,12 @@ HQ_SETTINGS_PATH = INSTANCE_DIR / "hq_settings.json"
 HQ_FIELDS = (
     "HQ_COPY_EMAIL",
     "MAIL_FROM",
+    "MAIL_ENABLED",
+    "MAIL_HOST",
+    "MAIL_PORT",
+    "MAIL_USERNAME",
+    "MAIL_PASSWORD",
+    "GOOGLE_MAPS_API_KEY",
     "PGU_NAME",
     "PGU_DEPT",
     "PGU_ADDRESS",
@@ -24,7 +30,23 @@ HQ_FIELDS = (
     "BANK_SWIFT",
 )
 
-FACTORY_DEFAULTS = {key: getattr(Config, key, "") or "" for key in HQ_FIELDS}
+BOOL_KEYS = {"MAIL_ENABLED"}
+INT_KEYS = {"MAIL_PORT"}
+
+
+def _factory_value(key):
+    val = getattr(Config, key, "")
+    if key in BOOL_KEYS:
+        return bool(val)
+    if key in INT_KEYS:
+        try:
+            return int(val or 587)
+        except (TypeError, ValueError):
+            return 587
+    return val or ""
+
+
+FACTORY_DEFAULTS = {key: _factory_value(key) for key in HQ_FIELDS}
 
 
 def default_hq_settings() -> dict:
@@ -39,24 +61,37 @@ def load_hq_settings() -> dict:
             if isinstance(saved, dict):
                 for key in HQ_FIELDS:
                     if key in saved and saved[key] is not None:
-                        data[key] = str(saved[key])
+                        data[key] = saved[key]
         except (OSError, json.JSONDecodeError):
             pass
     apply_hq_settings(data)
     return data
 
 
+def coerce_setting(key, val):
+    if key in BOOL_KEYS:
+        if isinstance(val, bool):
+            return val
+        return str(val).strip().lower() in {"1", "true", "yes", "on"}
+    if key in INT_KEYS:
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            return 587
+    return str(val if val is not None else "").strip()
+
+
 def apply_hq_settings(data: dict) -> None:
     for key in HQ_FIELDS:
         if key in data:
-            setattr(Config, key, data[key])
+            setattr(Config, key, coerce_setting(key, data[key]))
 
 
 def save_hq_settings(data: dict) -> dict:
     payload = default_hq_settings()
     for key in HQ_FIELDS:
         if key in data and data[key] is not None:
-            payload[key] = str(data[key]).strip()
+            payload[key] = coerce_setting(key, data[key])
     INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
     HQ_SETTINGS_PATH.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),

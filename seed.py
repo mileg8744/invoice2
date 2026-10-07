@@ -118,21 +118,24 @@ def seed_if_empty(db_session):
     db_session.add_all(
         [
             Training(
-                title="POSCO Group Leadership Program",
+                title="포스코그룹 리더십 프로그램",
+                title_en="POSCO Group Leadership Program",
                 start_date=date(2026, 3, 2),
                 end_date=date(2026, 3, 6),
                 instructor="Kim Minjun",
                 unit_price_krw=1_500_000,
             ),
             Training(
-                title="Global Finance & Compliance Workshop",
+                title="글로벌 재무·컴플라이언스 워크숍",
+                title_en="Global Finance & Compliance Workshop",
                 start_date=date(2026, 9, 14),
                 end_date=date(2026, 9, 16),
                 instructor="Lee Sujin",
                 unit_price_krw=800_000,
             ),
             Training(
-                title="Safety Leadership for Overseas Sites",
+                title="해외사업장 안전 리더십",
+                title_en="Safety Leadership for Overseas Sites",
                 start_date=date(2026, 11, 9),
                 end_date=date(2026, 11, 11),
                 instructor="Park Jiwon",

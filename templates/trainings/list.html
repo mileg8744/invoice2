@@ -41,7 +41,7 @@
           <td>
             <input class="form-check-input" type="checkbox" name="training_ids" value="{{ row.id }}" checked>
           </td>
-          <td>{{ row.title }}</td>
+          <td>{{ row.title }}{% if row.title_en and row.title_en != row.title %}<div class="tiny">{{ row.title_en }}</div>{% endif %}</td>
           <td>{{ row.start_date | ymd }} ~ {{ row.end_date | ymd }}</td>
           <td>{{ row.instructor }}</td>
           <td class="text-end">{{ learner_counts.get(row.id, 0) }}</td>

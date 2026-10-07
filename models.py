@@ -64,6 +64,7 @@ class Training(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String(300), nullable=False)
+    title_en: Mapped[str] = mapped_column(String(300), default="")
     start_date: Mapped[datetime] = mapped_column(Date, nullable=False)
     end_date: Mapped[datetime] = mapped_column(Date, nullable=False)
     instructor: Mapped[str] = mapped_column(String(100), nullable=False)

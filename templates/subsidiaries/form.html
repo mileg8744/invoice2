@@ -55,7 +55,13 @@
     <div class="mt-4 d-flex gap-2">
       <button class="btn btn-navy" type="submit">{{ t('save') }}</button>
       <a class="btn btn-ghost" href="{{ url_for('subsidiaries') }}">{{ t('cancel') }}</a>
+      {% if row %}
+      <button class="btn btn-ghost" type="submit" form="del-sub" onclick="return confirm('{{ t('confirm_delete_subsidiary') }}');">{{ t('delete') }}</button>
+      {% endif %}
     </div>
   </form>
+  {% if row %}
+  <form id="del-sub" method="post" action="{{ url_for('subsidiary_delete', sid=row.id) }}"></form>
+  {% endif %}
 </div>
 {% endblock %}

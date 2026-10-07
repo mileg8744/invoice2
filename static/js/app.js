@@ -22,12 +22,78 @@ document.addEventListener("DOMContentLoaded", () => {
   showBtn?.addEventListener("click", () => setCollapsed(false));
   restoreBtn?.addEventListener("click", () => setCollapsed(false));
 
-  bindAddressSearch();
+  bindKrwInputs(document);
+  document.querySelectorAll("form").forEach((form) => {
+    form.addEventListener("submit", () => {
+      form.querySelectorAll(".js-krw").forEach((el) => {
+        el.value = String(el.value || "").replace(/,/g, "");
+      });
+    });
+  });
+
+  loadGoogleMaps(window.PGU_GOOGLE_MAPS_KEY || "", bindAddressSearch);
 });
+
+function pguParseKrw(value) {
+  return Number(String(value || "").replace(/[^\d-]/g, "")) || 0;
+}
+
+function pguFormatKrw(value) {
+  const n = pguParseKrw(value);
+  return n ? n.toLocaleString("en-US") : "";
+}
+
+function bindKrwInputs(root) {
+  (root || document).querySelectorAll(".js-krw").forEach((el) => {
+    if (el.dataset.krwBound) return;
+    el.dataset.krwBound = "1";
+    el.addEventListener("input", () => {
+      const start = el.selectionStart;
+      const before = el.value || "";
+      el.value = pguFormatKrw(before);
+      if (typeof start === "number") {
+        const diff = el.value.length - before.length;
+        try {
+          el.setSelectionRange(start + diff, start + diff);
+        } catch (e) {}
+      }
+    });
+    if (el.value) el.value = pguFormatKrw(el.value);
+  });
+}
+
+window.pguParseKrw = pguParseKrw;
+window.pguFormatKrw = pguFormatKrw;
+window.pguBindKrw = bindKrwInputs;
+
+function loadGoogleMaps(key, done) {
+  if (window.google && window.google.maps && window.google.maps.places) {
+    done();
+    return;
+  }
+  if (!key) {
+    done();
+    return;
+  }
+  const existing = document.getElementById("google-maps-sdk");
+  if (existing) {
+    existing.addEventListener("load", () => done(), { once: true });
+    existing.addEventListener("error", () => done(), { once: true });
+    return;
+  }
+  const script = document.createElement("script");
+  script.id = "google-maps-sdk";
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&language=en`;
+  script.async = true;
+  script.onload = () => done();
+  script.onerror = () => done();
+  document.head.appendChild(script);
+}
 
 function bindAddressSearch() {
   const boxes = document.querySelectorAll(".addr-search");
   if (!boxes.length) return;
+  const googleReady = Boolean(window.google && window.google.maps && window.google.maps.places);
 
   boxes.forEach((box) => {
     const input = box.querySelector(".js-addr-q");
@@ -40,11 +106,13 @@ function bindAddressSearch() {
     let seq = 0;
 
     function hideResults() {
+      if (!results) return;
       results.hidden = true;
       results.innerHTML = "";
     }
 
     function showItems(items) {
+      if (!results) return;
       results.innerHTML = "";
       if (!items.length) {
         const li = document.createElement("li");
@@ -91,22 +159,38 @@ function bindAddressSearch() {
       }
     }
 
-    input?.addEventListener("input", () => {
-      const query = (input.value || "").trim();
-      clearTimeout(timer);
-      if (query.length < 3) {
-        hideResults();
-        return;
-      }
-      timer = setTimeout(() => runSearch(query), 350);
-    });
+    if (googleReady && input) {
+      const ac = new window.google.maps.places.Autocomplete(input, {
+        fields: ["formatted_address", "address_components", "name"],
+        types: ["geocode"],
+      });
+      ac.addListener("place_changed", () => {
+        const place = ac.getPlace();
+        if (place && place.formatted_address) {
+          target.value = place.formatted_address;
+          input.value = "";
+          hideResults();
+          target.focus();
+        }
+      });
+    } else {
+      input?.addEventListener("input", () => {
+        const query = (input.value || "").trim();
+        clearTimeout(timer);
+        if (query.length < 3) {
+          hideResults();
+          return;
+        }
+        timer = setTimeout(() => runSearch(query), 350);
+      });
+    }
 
     input?.addEventListener("keydown", (ev) => {
       if (ev.key === "Enter") {
         ev.preventDefault();
         clearTimeout(timer);
         const query = (input.value || "").trim();
-        if (query.length >= 3) runSearch(query);
+        if (!googleReady && query.length >= 3) runSearch(query);
         const country = (countryInput?.value || box.getAttribute("data-country") || "").toLowerCase();
         if (/^\d{5}$/.test(query) && /korea|대한민국|한국/.test(country)) {
           daumBtn?.click();

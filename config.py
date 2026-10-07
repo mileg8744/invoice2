@@ -35,6 +35,7 @@ class Config:
     MAIL_FROM = os.environ.get("MAIL_FROM", "pgu.invoice@posco.com")
     MAIL_USE_TLS = True
     HQ_COPY_EMAIL = os.environ.get("HQ_COPY_EMAIL", "hoan3532@poscohrd.com")
+    GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 
     BANK_NAME = "KEB HANA BANK"
     BANK_BRANCH = "Songdosindosi Branch"

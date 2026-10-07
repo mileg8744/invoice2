@@ -222,6 +222,7 @@ html.sidebar-collapsed .sidebar-restore-tab { display: inline-flex; }
 .addr-results li button:hover { background: var(--ice); }
 .addr-results li button small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
 .addr-empty { padding: 10px; color: var(--muted); font-size: 13px; }
+.pac-container { z-index: 10000; }
 
 .login-body {
   min-height: 100vh;

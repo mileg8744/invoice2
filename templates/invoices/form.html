@@ -138,7 +138,7 @@
           </div>
           <div class="col-md-2">
             <label class="form-label">{{ t('unit_krw') }}</label>
-            <input class="form-control item-unit" type="number" min="0" name="item_unit_price_krw" value="${unit}" required>
+            <input class="form-control item-unit js-krw" type="text" inputmode="numeric" name="item_unit_price_krw" value="${Number(unit || 0).toLocaleString('en-US')}" required>
           </div>
           <div class="col-md-2">
             <label class="form-label">KRW</label>
@@ -224,6 +224,11 @@
     recalc();
   }
 
+  function parseKrw(value) {
+    if (window.pguParseKrw) return window.pguParseKrw(value);
+    return Number(String(value || '').replace(/,/g, '')) || 0;
+  }
+
   function bindLine(el) {
     el.querySelector('.btn-remove').addEventListener('click', () => {
       el.remove();
@@ -233,6 +238,7 @@
       inp.addEventListener('input', recalc);
       inp.addEventListener('change', recalc);
     });
+    if (window.pguBindKrw) window.pguBindKrw(el);
   }
 
   document.getElementById('btnAddSelected').addEventListener('click', () => {
@@ -271,7 +277,7 @@
         qty = Math.max(qty, learners.length);
         qtyInput.value = qty;
       }
-      const unit = Number(el.querySelector('.item-unit').value || 0);
+      const unit = parseKrw(el.querySelector('.item-unit').value);
       const line = qty * unit;
       el.querySelector('.item-line-krw').textContent = line.toLocaleString();
       krw += line;

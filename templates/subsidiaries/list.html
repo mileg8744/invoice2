@@ -7,6 +7,7 @@
     <button class="btn btn-navy" type="submit">{{ t('search') }}</button>
   </form>
   <div class="toolbar-right">
+    <a class="btn btn-outline-navy" href="{{ url_for('subsidiaries_export', q=q) }}"><i class="bi bi-file-earmark-excel"></i> {{ t('export_excel') }}</a>
     <a class="btn btn-outline-navy" href="{{ url_for('subsidiary_template') }}"><i class="bi bi-download"></i> {{ t('download_template') }}</a>
     <a class="btn btn-navy" href="{{ url_for('subsidiary_new') }}"><i class="bi bi-plus"></i> {{ t('new_subsidiary') }}</a>
   </div>
@@ -53,6 +54,9 @@
             <a class="btn btn-sm btn-outline-navy" href="{{ url_for('subsidiary_edit', sid=row.id) }}">{{ t('edit') }}</a>
             <form class="d-inline" method="post" action="{{ url_for('subsidiary_reset', sid=row.id) }}" onsubmit="return confirm('{{ t('confirm_reset') }}');">
               <button class="btn btn-sm btn-ghost" type="submit">{{ t('reset_password') }}</button>
+            </form>
+            <form class="d-inline" method="post" action="{{ url_for('subsidiary_delete', sid=row.id) }}" onsubmit="return confirm('{{ t('confirm_delete_subsidiary') }}');">
+              <button class="btn btn-sm btn-ghost" type="submit">{{ t('delete') }}</button>
             </form>
           </td>
         </tr>

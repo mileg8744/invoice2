@@ -3,11 +3,15 @@
 {% block content %}
 <div class="card-panel" style="max-width:860px">
   <form method="post">
-    <div class="mb-3">
-      <label class="form-label">{{ t('education') }}</label>
-      <input class="form-control" name="title" value="{{ row.title if row else '' }}" required>
-    </div>
     <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">{{ t('education_ko') }}</label>
+        <input class="form-control" name="title" value="{{ row.title if row else '' }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">{{ t('education_en') }}</label>
+        <input class="form-control" name="title_en" value="{{ row.title_en if row else '' }}" required>
+      </div>
       <div class="col-md-6">
         <label class="form-label">{{ t('period') }} (Start)</label>
         <input class="form-control" type="date" name="start_date" value="{{ row.start_date.strftime('%Y-%m-%d') if row else today }}" required>
@@ -22,7 +26,7 @@
       </div>
       <div class="col-md-6">
         <label class="form-label">{{ t('unit_krw') }}</label>
-        <input class="form-control" type="number" min="0" step="1" name="unit_price_krw" value="{{ row.unit_price_krw if row else 0 }}" required>
+        <input class="form-control js-krw" type="text" inputmode="numeric" name="unit_price_krw" value="{{ '{:,}'.format(row.unit_price_krw) if row else '0' }}" required>
       </div>
     </div>
     <div class="mt-3">

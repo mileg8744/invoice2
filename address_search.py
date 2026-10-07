@@ -69,11 +69,49 @@ def format_nominatim(item: dict) -> str:
     return (item.get("display_name") or "").strip()
 
 
-def search_english_addresses(query: str, country: str = "") -> list[dict]:
+def search_google_addresses(query: str, country: str, api_key: str) -> list[dict]:
+    q = " ".join((query or "").split())
+    extra = " ".join((country or "").split())
+    if not api_key or len(q) < 3:
+        return []
+    params = {
+        "address": f"{q} {extra}".strip(),
+        "key": api_key,
+        "language": "en",
+    }
+    try:
+        data = _get_json(
+            "https://maps.googleapis.com/maps/api/geocode/json?" + urllib.parse.urlencode(params)
+        )
+    except Exception:
+        return []
+    if (data or {}).get("status") not in {"OK", "ZERO_RESULTS"}:
+        return []
+    items = []
+    seen = set()
+    for row in data.get("results") or []:
+        label = (row.get("formatted_address") or "").strip()
+        key = " ".join(label.lower().split())
+        if not label or key in seen:
+            continue
+        seen.add(key)
+        comps = row.get("address_components") or []
+        detail = _clean([c.get("long_name") for c in comps[:2]])
+        items.append({"label": label, "detail": detail})
+        if len(items) >= 8:
+            break
+    return items
+
+
+def search_english_addresses(query: str, country: str = "", api_key: str = "") -> list[dict]:
     q = " ".join((query or "").split())
     extra = " ".join((country or "").split())
     if len(q) < 3:
         return []
+    if api_key:
+        google_items = search_google_addresses(q, extra, api_key)
+        if google_items:
+            return google_items
     items = []
     seen = set()
 

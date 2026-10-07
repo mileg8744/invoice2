@@ -88,7 +88,7 @@ def generate_invoice_pdf(invoice, output_path: Path) -> Path:
 
     sub = invoice.subsidiary
     billed_lines = []
-    for line in [sub.name_en, f"Entity Code: {sub.code}", sub.address_en or ""]:
+    for line in [sub.name_en, sub.address_en or ""]:
         billed_lines.extend(_wrap(line, wrap_chars))
     sender_lines = []
     for line in [
@@ -246,7 +246,7 @@ def generate_invoice_pdf(invoice, output_path: Path) -> Path:
         ("Branch", Config.BANK_BRANCH),
         ("Account Name", Config.BANK_ACCOUNT_NAME),
         ("Account No.", Config.BANK_ACCOUNT_NO),
-        ("SWIFT Code", Config.BANK_SWIFT),
+        ("BIC (Swift Code)", Config.BANK_SWIFT),
     ]
     c.setFillColor(black)
     col1 = margin + 4 * mm

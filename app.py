@@ -76,6 +76,9 @@ def create_app():
             train_cols = {c["name"] for c in inspector.get_columns("trainings")}
             if "learners" not in train_cols:
                 conn.exec_driver_sql("ALTER TABLE trainings ADD COLUMN learners TEXT DEFAULT ''")
+            if "title_en" not in train_cols:
+                conn.exec_driver_sql("ALTER TABLE trainings ADD COLUMN title_en VARCHAR(300) DEFAULT ''")
+                conn.exec_driver_sql("UPDATE trainings SET title_en = title WHERE title_en IS NULL OR title_en = ''")
 
     with Session() as db:
         seed_if_empty(db)
@@ -150,6 +153,7 @@ def create_app():
             "today": date.today().strftime("%Y-%m-%d"),
             "status_label": lambda s: t(f"status_{s}") if s else "",
             "hq_copy_email": Config.HQ_COPY_EMAIL,
+            "google_maps_key": getattr(Config, "GOOGLE_MAPS_API_KEY", "") or "",
         }
 
     @app.template_filter("krw")
@@ -285,6 +289,21 @@ def create_app():
         except ValueError:
             return default
 
+    def flash_mail_result(mail, success_key, commit=False):
+        if not mail.get("ok"):
+            err = mail.get("error") or ""
+            if err == "no_email":
+                flash(t("no_email"), "danger")
+            elif err == "smtp_not_configured":
+                flash(t("smtp_not_configured"), "danger")
+            else:
+                flash(f"{t('mail_send_fail')} {err}".strip(), "danger")
+            return False
+        flash(t(success_key), "success")
+        if mail.get("via") == "outbox":
+            flash(t("email_saved_outbox"), "info")
+        return True
+
     EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
     CODE_RE = re.compile(r"([0-9]{2}[A-Za-z]{2}[0-9]{2})")
 
@@ -402,7 +421,7 @@ def create_app():
             learner_name=named[0] if len(named) == 1 else "",
             learners=roster_as_text(people),
             learner_roster=dump_roster(people),
-            description=training.title,
+            description=training_title_en(training),
             instructor=training.instructor,
             period_start=training.start_date,
             period_end=training.end_date,
@@ -641,6 +660,12 @@ def create_app():
             payload = {
                 "HQ_COPY_EMAIL": (request.form.get("hq_copy_email") or "").strip(),
                 "MAIL_FROM": (request.form.get("mail_from") or "").strip(),
+                "MAIL_ENABLED": request.form.get("mail_enabled") == "1",
+                "MAIL_HOST": (request.form.get("mail_host") or "").strip(),
+                "MAIL_PORT": (request.form.get("mail_port") or "587").strip(),
+                "MAIL_USERNAME": (request.form.get("mail_username") or "").strip(),
+                "MAIL_PASSWORD": (request.form.get("mail_password") or "").strip() or (hq.get("MAIL_PASSWORD") or ""),
+                "GOOGLE_MAPS_API_KEY": (request.form.get("google_maps_api_key") or "").strip(),
                 "PGU_NAME": (request.form.get("pgu_name") or "").strip(),
                 "PGU_DEPT": (request.form.get("pgu_dept") or "").strip(),
                 "PGU_ADDRESS": (request.form.get("pgu_address") or "").replace("\r", "").strip(),
@@ -773,6 +798,89 @@ def create_app():
             db.commit()
             flash(t("pw_reset_ok"), "success")
         return redirect(url_for("subsidiaries"))
+
+    @app.route("/subsidiaries/<int:sid>/delete", methods=["POST"])
+    @admin_required
+    def subsidiary_delete(sid):
+        db = Session()
+        row = db.get(Subsidiary, sid)
+        if not row:
+            flash(t("not_found"), "danger")
+            return redirect(url_for("subsidiaries"))
+        linked = db.query(Invoice).filter_by(subsidiary_id=sid).count()
+        if linked:
+            flash(t("cannot_delete_subsidiary"), "danger")
+            return redirect(url_for("subsidiaries"))
+        code = row.code
+        if row.user:
+            db.delete(row.user)
+        db.delete(row)
+        log_action(db, "subsidiary", code, "DELETE", "")
+        db.commit()
+        flash(t("subsidiary_deleted"), "success")
+        return redirect(url_for("subsidiaries"))
+
+    @app.route("/subsidiaries/export")
+    @admin_required
+    def subsidiaries_export():
+        db = Session()
+        qtext = request.args.get("q", "").strip()
+        q = db.query(Subsidiary)
+        if qtext:
+            like = f"%{qtext}%"
+            q = q.filter(
+                or_(
+                    Subsidiary.code.ilike(like),
+                    Subsidiary.name_ko.ilike(like),
+                    Subsidiary.name_en.ilike(like),
+                    Subsidiary.country.ilike(like),
+                    Subsidiary.region.ilike(like),
+                    Subsidiary.region_en.ilike(like),
+                )
+            )
+        rows = q.order_by(Subsidiary.code.asc()).all()
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "subsidiaries"
+        headers = [
+            "code",
+            "region",
+            "region_en",
+            "country",
+            "country_en",
+            "name_ko",
+            "name_en",
+            "address_en",
+            "emails",
+            "phone",
+            "status",
+        ]
+        ws.append(headers)
+        for row in rows:
+            ws.append(
+                [
+                    row.code,
+                    row.region,
+                    row.region_en,
+                    row.country,
+                    row.country_en,
+                    row.name_ko,
+                    row.name_en,
+                    row.address_en,
+                    row.emails,
+                    row.phone,
+                    row.status,
+                ]
+            )
+        bio = BytesIO()
+        wb.save(bio)
+        bio.seek(0)
+        return send_file(
+            bio,
+            as_attachment=True,
+            download_name="subsidiary_master.xlsx",
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
 
     @app.route("/subsidiaries/template")
     @admin_required
@@ -912,12 +1020,16 @@ def create_app():
 
     def save_training(row, form):
         row.title = (form.get("title") or "").strip()
+        row.title_en = (form.get("title_en") or "").strip() or row.title
         row.start_date = _as_date(form.get("start_date"))
         row.end_date = _as_date(form.get("end_date"))
         row.instructor = (form.get("instructor") or "").strip()
         row.unit_price_krw = _as_int(form.get("unit_price_krw"))
         row.learners = (form.get("learners") or "").strip()
         row.updated_at = utcnow()
+
+    def training_title_en(training):
+        return ((getattr(training, "title_en", "") or "") or training.title or "").strip()
 
     def parse_training_learners(raw):
         grouped = {}
@@ -1126,7 +1238,7 @@ def create_app():
                     seq=seq,
                     subsidiary_id=sub_id,
                     training_id=None,
-                    education_name=first.title,
+                    education_name=training_title_en(first),
                     period_start=first.start_date,
                     period_end=first.end_date,
                     instructor=first.instructor,
@@ -1196,6 +1308,7 @@ def create_app():
             try:
                 row = Training(
                     title="",
+                    title_en="",
                     start_date=date.today(),
                     end_date=date.today(),
                     instructor="",
@@ -1295,6 +1408,7 @@ def create_app():
         return {
             "ok": True,
             "title": row.title,
+            "title_en": getattr(row, "title_en", "") or row.title,
             "start_date": row.start_date.strftime("%Y-%m-%d"),
             "end_date": row.end_date.strftime("%Y-%m-%d"),
             "instructor": row.instructor,
@@ -1309,7 +1423,11 @@ def create_app():
         if len(query) < 3:
             return {"ok": True, "items": []}
         try:
-            items = search_english_addresses(query, country)
+            items = search_english_addresses(
+                query,
+                country,
+                getattr(Config, "GOOGLE_MAPS_API_KEY", "") or "",
+            )
         except Exception:
             items = []
         return {"ok": True, "items": items}
@@ -1580,7 +1698,8 @@ def create_app():
                 {
                     "id": tr.id,
                     "training_id": tr.id,
-                    "education_name": tr.title,
+                    "education_name": training_title_en(tr),
+                    "education_name_ko": tr.title,
                     "instructor": tr.instructor,
                     "period_start": tr.start_date.strftime("%Y-%m-%d"),
                     "period_end": tr.end_date.strftime("%Y-%m-%d"),
@@ -1742,8 +1861,7 @@ def create_app():
             return redirect(url_for("invoice_detail", iid=iid))
         path = rebuild_pdf(row)
         mail = send_invoice_email(row, path, remind=False)
-        if not mail.get("ok"):
-            flash(t("no_email"), "danger")
+        if not flash_mail_result(mail, "issued_ok", commit=False):
             return redirect(url_for("invoice_detail", iid=iid))
         row.status = "issued"
         row.issued_at = utcnow()
@@ -1757,9 +1875,6 @@ def create_app():
             f"to={','.join(mail.get('recipients') or [])}; via={mail.get('via')}",
         )
         db.commit()
-        flash(t("issued_ok"), "success")
-        if mail.get("via") == "outbox":
-            flash(t("email_saved_outbox"), "info")
         return redirect(url_for("invoice_detail", iid=iid))
 
     @app.route("/invoices/<int:iid>/acknowledge", methods=["POST"])
@@ -1789,7 +1904,7 @@ def create_app():
         db = Session()
         row = db.get(Invoice, iid)
         if not row:
-            return redirect(url_for("collections"))
+            return redirect(url_for("invoices"))
         if row.status == "draft":
             flash(t("issue_disabled"), "warning")
             return redirect(url_for("invoice_detail", iid=iid))
@@ -1816,9 +1931,9 @@ def create_app():
             return redirect(url_for("invoice_detail", iid=iid) if row else url_for("invoices"))
         path = rebuild_pdf(row)
         mail = send_invoice_email(row, path, remind=True)
-        log_action(db, "invoice", row.invoice_no, "REMIND", ",".join(mail.get("recipients") or []))
-        db.commit()
-        flash(t("remind_ok"), "success")
+        if flash_mail_result(mail, "remind_ok", commit=False):
+            log_action(db, "invoice", row.invoice_no, "REMIND", ",".join(mail.get("recipients") or []))
+            db.commit()
         return redirect(url_for("invoice_detail", iid=iid))
 
     @app.route("/invoices/<int:iid>/resend", methods=["POST"])
@@ -1830,9 +1945,9 @@ def create_app():
             return redirect(url_for("invoices"))
         path = rebuild_pdf(row)
         mail = send_invoice_email(row, path, updated=True)
-        log_action(db, "invoice", row.invoice_no, "RESEND", ",".join(mail.get("recipients") or []))
-        db.commit()
-        flash(t("mail_resent"), "success")
+        if flash_mail_result(mail, "mail_resent", commit=False):
+            log_action(db, "invoice", row.invoice_no, "RESEND", ",".join(mail.get("recipients") or []))
+            db.commit()
         return redirect(url_for("invoice_detail", iid=iid))
 
     @app.route("/invoices/hq-copy", methods=["POST"])
@@ -1881,9 +1996,6 @@ def create_app():
             flash(f"{t('hq_bulk_fail')} {failed}{t('rows')}", "warning")
         if not sent and not failed:
             flash(t("hq_bulk_none"), "warning")
-        next_page = request.form.get("next") or "invoices"
-        if next_page == "collections":
-            return redirect(url_for("collections", **request.args))
         return redirect(url_for("invoices", **request.args))
 
     @app.route("/invoices/<int:iid>/pdf")
@@ -2042,26 +2154,7 @@ def create_app():
     @app.route("/collections")
     @admin_required
     def collections():
-        db = Session()
-        q = filtered_invoices(db, current_user()).filter(Invoice.status != "draft")
-        rows = q.all()
-        years = sorted({i.year for i in db.query(Invoice.year).all()} | {date.today().year})
-        subs = db.query(Subsidiary).order_by(Subsidiary.code).all()
-        logs = db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(40).all()
-        return render_template(
-            "collections.html",
-            rows=rows,
-            years=years,
-            subs=subs,
-            logs=logs,
-            filters={
-                "year": request.args.get("year", ""),
-                "half": request.args.get("half", ""),
-                "status": request.args.get("status", ""),
-                "subsidiary": request.args.get("subsidiary", ""),
-                "q": request.args.get("q", ""),
-            },
-        )
+        return redirect(url_for("invoices"))
 
     @app.route("/logs")
     @admin_required
