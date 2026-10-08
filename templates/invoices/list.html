@@ -67,11 +67,22 @@
 {% endif %}
 
 {% if current_user.role == 'admin' %}
-<form method="post" action="{{ url_for('invoices_bulk_remind', **request.args) }}" id="bulk-remind-form" data-need-one="{{ t('bulk_remind_need_one') }}" data-confirm="{{ t('confirm_bulk_remind') }}"></form>
+<form method="post" action="{{ url_for('invoices_bulk_remind', **request.args) }}" id="bulk-invoice-form"
+      data-need-remind="{{ t('bulk_remind_need_one') }}"
+      data-need-issue="{{ t('bulk_issue_need_one') }}"
+      data-need-delete="{{ t('bulk_delete_need_one') }}"
+      data-confirm-remind="{{ t('confirm_bulk_remind') }}"
+      data-confirm-issue="{{ t('confirm_bulk_issue') }}"
+      data-confirm-delete="{{ t('confirm_bulk_delete') }}">
 <div class="toolbar">
-  <p class="muted mb-0">{{ t('bulk_remind_help') }}</p>
-  <button class="btn btn-navy" type="submit" form="bulk-remind-form"><i class="bi bi-envelope-check"></i> {{ t('bulk_remind_send') }}</button>
+  <p class="muted mb-0">{{ t('bulk_actions_help') }}</p>
+  <div class="toolbar-right">
+    <button class="btn btn-navy" type="submit" formaction="{{ url_for('invoices_bulk_remind', **request.args) }}" data-bulk-action="remind"><i class="bi bi-envelope-check"></i> {{ t('bulk_remind_send') }}</button>
+    <button class="btn btn-outline-navy" type="submit" formaction="{{ url_for('invoices_bulk_issue', **request.args) }}" data-bulk-action="issue"><i class="bi bi-send-check"></i> {{ t('bulk_issue') }}</button>
+    <button class="btn btn-ghost" type="submit" formaction="{{ url_for('invoices_bulk_delete', **request.args) }}" data-bulk-action="delete"><i class="bi bi-trash"></i> {{ t('bulk_delete') }}</button>
+  </div>
 </div>
+</form>
 {% endif %}
 <section class="card-panel">
   <div class="table-responsive">
@@ -80,7 +91,7 @@
         <tr>
           {% if current_user.role == 'admin' %}
           <th class="col-check">
-            <input class="form-check-input" type="checkbox" id="select-issued" title="{{ t('select_unacked') }}" aria-label="{{ t('select_unacked') }}">
+            <input class="form-check-input" type="checkbox" id="select-invoices" title="{{ t('select_all') }}" aria-label="{{ t('select_all') }}">
           </th>
           {% endif %}
           <th>{{ t('invoice_no') }}</th>
@@ -99,7 +110,7 @@
         <tr>
           {% if current_user.role == 'admin' %}
           <td class="col-check">
-            <input class="form-check-input js-issued-check" type="checkbox" name="invoice_ids" value="{{ row.id }}" form="bulk-remind-form" {% if row.status != 'issued' %}disabled{% endif %} aria-label="{{ row.invoice_no }}">
+            <input class="form-check-input js-invoice-check" type="checkbox" name="invoice_ids" value="{{ row.id }}" form="bulk-invoice-form" data-status="{{ row.status }}" aria-label="{{ row.invoice_no }}">
           </td>
           {% endif %}
           <td class="mono"><a href="{{ url_for('invoice_detail', iid=row.id) }}">{{ row.invoice_no }}</a></td>

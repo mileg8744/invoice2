@@ -45,9 +45,9 @@
 <div class="two-col">
   <section class="card-panel">
     <h3 class="h6">{{ t('billed_to') }}</h3>
-    <div><b>{{ row.subsidiary.name_en }}</b></div>
-    <div class="muted">{{ row.subsidiary.address_en }}</div>
-    <div class="mt-2 tiny">{{ row.subsidiary.emails }}</div>
+    <div><b>{{ row.billed_name or row.subsidiary.name_en }}</b></div>
+    <div class="muted">{{ row.billed_address or row.subsidiary.address_en }}</div>
+    <div class="mt-2 tiny">{% if row.subsidiary.emails %}{{ row.subsidiary.emails }}{% else %}{{ t('unregistered') }}{% endif %}</div>
   </section>
   <section class="card-panel">
     <h3 class="h6">{{ t('detail') }}</h3>

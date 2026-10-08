@@ -10,7 +10,6 @@ HQ_SETTINGS_PATH = INSTANCE_DIR / "hq_settings.json"
 
 HQ_FIELDS = (
     "HQ_COPY_EMAIL",
-    "GOOGLE_MAPS_API_KEY",
     "PGU_NAME",
     "PGU_DEPT",
     "PGU_ADDRESS",

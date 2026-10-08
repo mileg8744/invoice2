@@ -129,10 +129,10 @@ def generate_invoice_pdf(invoice, output_path: Path) -> Path:
     right_x = margin + col_w + col_gap
 
     sub = invoice.subsidiary
-    billed = [sub.name_en or ""]
-    if getattr(sub, "code", ""):
-        billed.append(f"Entity Code: {sub.code}")
-    billed.extend(str(sub.address_en or "").replace("\r", "").splitlines())
+    billed_name = (getattr(invoice, "billed_name", None) or "").strip() or (sub.name_en if sub else "")
+    billed_address = (getattr(invoice, "billed_address", None) or "").strip() or ((sub.address_en if sub else "") or "")
+    billed = [billed_name or ""]
+    billed.extend(str(billed_address or "").replace("\r", "").splitlines())
     billed = [line.strip() for line in billed if str(line).strip()]
 
     issued = [Config.PGU_NAME]

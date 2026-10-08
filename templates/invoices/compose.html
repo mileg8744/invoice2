@@ -12,19 +12,17 @@
 </div>
 
 <section class="card-panel mb-3" style="max-width:860px">
-  <h3 class="h6">{{ t('mail_to') }}</h3>
-  <p class="mb-1">{{ to_text or '-' }}</p>
-  {% if cc_text %}
-  <div class="tiny">{{ t('mail_cc') }}: {{ cc_text }}</div>
-  {% endif %}
   {% if rows|length > 1 %}
-  <p class="muted mt-3 mb-1">{{ t('compose_selected') }} {{ rows|length }}{{ t('rows') }}</p>
-  <ul class="tiny mb-0">
+  <p class="muted mb-1">{{ t('compose_selected') }} {{ rows|length }}{{ t('rows') }}</p>
+  <ul class="tiny mb-3">
     {% for row in rows %}
     <li class="mono">{{ row.invoice_no }} · {{ row.subsidiary.code }} · {{ row.subsidiary.name_en }}</li>
     {% endfor %}
   </ul>
   {% endif %}
+  <h3 class="h6">{{ t('mail_preview') }}</h3>
+  <p class="mb-1"><strong>{{ t('mail_to') }}</strong>: {{ to_text or t('unregistered') }}</p>
+  <p class="mb-0"><strong>{{ t('mail_cc') }}</strong>: {{ cc_text or t('unregistered') }}</p>
 </section>
 
 <form method="post" action="{{ action }}" class="card-panel" style="max-width:860px">
@@ -35,6 +33,35 @@
   <input type="hidden" name="invoice_ids" value="{{ iid }}">
   {% endfor %}
   <input type="hidden" name="compose_ready" value="1">
+  {% if not bulk %}
+  <input type="hidden" name="mail_recipients_ready" value="1">
+  <div class="mb-3">
+    <label class="form-label">{{ t('mail_to') }}</label>
+    {% for email in to_choices %}
+    <label class="d-block">
+      <input type="checkbox" name="mail_to" value="{{ email }}" checked> {{ email }}
+    </label>
+    {% endfor %}
+    {% if not to_choices %}
+    <p class="muted">{{ t('unregistered') }}</p>
+    {% endif %}
+    <input class="form-control mt-2" name="mail_to_extra" placeholder="{{ t('mail_extra_to') }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">{{ t('mail_cc') }}</label>
+    {% for email in cc_choices %}
+    <label class="d-block">
+      <input type="checkbox" name="mail_cc" value="{{ email }}" checked> {{ email }}
+    </label>
+    {% endfor %}
+    {% if not cc_choices %}
+    <p class="muted">{{ t('unregistered') }}</p>
+    {% endif %}
+    <input class="form-control mt-2" name="mail_cc_extra" placeholder="{{ t('mail_extra_cc') }}">
+  </div>
+  {% else %}
+  <p class="muted">{{ t('compose_bulk_recipients') }}</p>
+  {% endif %}
   <div class="mb-3">
     <label class="form-label" for="mail-subject">{{ t('mail_subject') }}</label>
     <input class="form-control" id="mail-subject" name="mail_subject" value="{{ draft.subject }}" required>

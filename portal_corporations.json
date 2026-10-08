@@ -1,0 +1,932 @@
+[
+  {
+    "status": "활성화",
+    "number": 1,
+    "corporation_code": "01AR01",
+    "company": "포스코홀딩스",
+    "region": "아메리카",
+    "country": "아르헨티나",
+    "corporation_name": "POSCO-Argentina(아르헨티나)",
+    "invoice_legal_name": "POSCO Argentina S.A.U.",
+    "corporation_type": "대표법인",
+    "address": "La Almudena Manzana 937A - Casa 10 (Ex Salon Terraza) - Ruta Prov. 28, Salta, Provincia de Salta, Argentina CP : 4400",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "yoonjh84@posco.com",
+      "yoonjh84@poscoargentina.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 2,
+    "corporation_code": "01US01",
+    "company": "포스코홀딩스",
+    "region": "아메리카",
+    "country": "미국",
+    "corporation_name": "POSCO-America(미국)",
+    "invoice_legal_name": "POSCO America Corporation",
+    "corporation_type": "대표법인",
+    "address": "1660 L Street NW #700, Washington, DC 20036",
+    "contact_emails": [
+      "bson@poscoamerica.com"
+    ],
+    "hr_expat_emails": [
+      "yj_kang0804@posco-inc.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 3,
+    "corporation_code": "01EU01",
+    "company": "포스코홀딩스",
+    "region": "유럽",
+    "country": "독일",
+    "corporation_name": "POSCO-Europe(유럽)",
+    "invoice_legal_name": "POSCO Europe Office",
+    "corporation_type": "대표법인",
+    "address": "Rahmannstr. 3, 65760 Eschborn, Germany",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "ssaris@posco-inc.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 4,
+    "corporation_code": "01CN01",
+    "company": "포스코홀딩스",
+    "region": "동북아시아",
+    "country": "중국",
+    "corporation_name": "POSCO-China(중국)",
+    "invoice_legal_name": "POSCO-China Holding Corp.",
+    "corporation_type": "대표법인",
+    "address": "35th Floor, POSCO Center, Hongtai East Street, Dawangjing Science and Technology Business Park, Chaoyang District, Beijing, China.",
+    "contact_emails": [
+      "cuiailan@posco.net",
+      "nania0709@posco.net"
+    ],
+    "hr_expat_emails": [
+      "zaichehe@posco-inc.com",
+      "pchezaiche@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 5,
+    "corporation_code": "01JP01",
+    "company": "포스코홀딩스",
+    "region": "동북아시아",
+    "country": "일본",
+    "corporation_name": "POSCO-Japan(일본)",
+    "invoice_legal_name": "POSCO JAPAN Co., Ltd.",
+    "corporation_type": "대표법인",
+    "address": "POSCO TOKYO BLDG., 5F, 11-14 GINZA 5CHOME, CHUO-KU, TOKYO 104-0061 JAPAN",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "oh.jongr@posco.com",
+      "jr.oh@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 6,
+    "corporation_code": "01CN16",
+    "company": "포스코홀딩스",
+    "region": "동북아시아",
+    "country": "홍콩",
+    "corporation_name": "POSCO-Asia(홍콩)",
+    "invoice_legal_name": "POSCO Asia Co., Ltd.",
+    "corporation_type": "기타법인",
+    "address": "Room 5306 Central Plaza, 18 Harbour Road, Wanchai, Hong Kong",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "jiyoonjeong@posco-inc.com",
+      "chanuk.kim@posco-inc.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 7,
+    "corporation_code": "02ID05",
+    "company": "포스코",
+    "region": "동남아시아",
+    "country": "인도네시아",
+    "corporation_name": "PT.Nicole Metal Industry(인도네시아)",
+    "invoice_legal_name": "PT.Nicole Metal Industry",
+    "corporation_type": "기타법인",
+    "address": "Sopo Del Office Tower A 17th Floor Jalan Mega Kuningan Barat Ⅲ Lot 10 1-6, Desa/Kelurahan Kuningan Timur, Kecamatan Setiabudi, South Jakarta, DKI Jakarta, Indonesia, 12950",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "799689@posco-inc.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 8,
+    "corporation_code": "01PL01",
+    "company": "포스코홀딩스",
+    "region": "유럽",
+    "country": "폴란드",
+    "corporation_name": "PLSC(폴란드)",
+    "invoice_legal_name": "Poland Legnica Sourcing Center Sp. Z o.o.",
+    "corporation_type": "기타법인",
+    "address": "Bukowice 43, 56-120 Brzeg Dolny, Poland",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "junmin_lee@posco-inc.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 9,
+    "corporation_code": "02CN02",
+    "company": "포스코",
+    "region": "동북아시아",
+    "country": "중국",
+    "corporation_name": "하강포항기차판유한공사(중국)",
+    "invoice_legal_name": "HBIS-POSCO(Guangdong) Automotive Steel Co.,Ltd.",
+    "corporation_type": "생산법인",
+    "address": "M001, Mai Village, Gaofu Road, Xingtan Town, Shunde District, Foshan, Guangdong, China",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "itrustu@posco.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 10,
+    "corporation_code": "02CN03",
+    "company": "포스코",
+    "region": "동북아시아",
+    "country": "중국",
+    "corporation_name": "POSCO-CSPC(소주)",
+    "invoice_legal_name": "POSCO(Suzhou) Automotive Processing Center Co., Ltd.",
+    "corporation_type": "가공센터/물류법인",
+    "address": "No.8 Pengqing Road, Huaqiao Kunshan, Jiangsu China 215332",
+    "contact_emails": [
+      "menglei@posco.net",
+      "wangshuo@posco.net",
+      "chenzg@posco.net"
+    ],
+    "hr_expat_emails": [
+      "wangshuo@posco.net",
+      "menglei@posco.net",
+      "chenzg@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 11,
+    "corporation_code": "02CN04",
+    "company": "포스코",
+    "region": "동북아시아",
+    "country": "중국",
+    "corporation_name": "POSCO-CCPC(중경)",
+    "invoice_legal_name": "POSCO CHONG QING AUTOMOTIVE PROCESSING CENTER CO.,LTD.",
+    "corporation_type": "가공센터/물류법인",
+    "address": "NO.16 BAOYUNROAD,LONGXING TOWN,YUBEI DISTRICT,CHONG QING,CHINA 401135",
+    "contact_emails": [
+      "menglei@posco.net",
+      "wangshuo@posco.net",
+      "chenzg@posco.net"
+    ],
+    "hr_expat_emails": [
+      "wangshuo@posco.net",
+      "menglei@posco.net",
+      "chenzg@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 13,
+    "corporation_code": "02CN06",
+    "company": "포스코",
+    "region": "동북아시아",
+    "country": "중국",
+    "corporation_name": "POSCO-CFPC(불산)",
+    "invoice_legal_name": "POSCO-CFPC Co., Ltd.",
+    "corporation_type": "가공센터/물류법인",
+    "address": "Guanglong Industrial Park,Chencun Town, Shunde, Foshan, Guangdong,China. 528316",
+    "contact_emails": [
+      "menglei@posco.net",
+      "wangshuo@posco.net",
+      "chenzg@posco.net"
+    ],
+    "hr_expat_emails": [
+      "wangshuo@posco.net",
+      "menglei@posco.net",
+      "chenzg@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 15,
+    "corporation_code": "02CN08",
+    "company": "포스코",
+    "region": "동북아시아",
+    "country": "중국",
+    "corporation_name": "POSCO-CLPC(심양)",
+    "invoice_legal_name": "POSCO(Liaoning) Automotive Processing Center Co., Ltd.",
+    "corporation_type": "가공센터/물류법인",
+    "address": "No.123 Jianshe Road, Dadong District, Shenyang, P.R.China 110122",
+    "contact_emails": [
+      "menglei@posco.net",
+      "wangshuo@posco.net",
+      "chenzg@posco.net"
+    ],
+    "hr_expat_emails": [
+      "wangshuo@posco.net",
+      "menglei@posco.net",
+      "chenzg@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 18,
+    "corporation_code": "02CN11",
+    "company": "포스코",
+    "region": "동북아시아",
+    "country": "중국",
+    "corporation_name": "POSCO-CTPC(천진)",
+    "invoice_legal_name": "POSCO-CTPC",
+    "corporation_type": "가공센터/물류법인",
+    "address": "No.288 Zhongnan Second Avenue,TEDA,Tianjin,China(West Zone)",
+    "contact_emails": [
+      "menglei@posco.net",
+      "wangshuo@posco.net",
+      "chenzg@posco.net"
+    ],
+    "hr_expat_emails": [
+      "wangshuo@posco.net",
+      "menglei@posco.net",
+      "chenzg@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 19,
+    "corporation_code": "02CN12",
+    "company": "포스코",
+    "region": "동북아시아",
+    "country": "중국",
+    "corporation_name": "POSCO-CWPC(우후)",
+    "invoice_legal_name": "POSCO(Suzhou) Automotive Processing Center Co., Ltd. WuHu Branch",
+    "corporation_type": "가공센터/물류법인",
+    "address": "Yinhu Road(North)Taishan Road,Economic&Technological-DevelopmentZone,Wuhu,Anhui,china",
+    "contact_emails": [
+      "menglei@posco.net",
+      "wangshuo@posco.net",
+      "chenzg@posco.net"
+    ],
+    "hr_expat_emails": [
+      "wangshuo@posco.net",
+      "menglei@posco.net",
+      "chenzg@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 20,
+    "corporation_code": "02CN13",
+    "company": "포스코",
+    "region": "동북아시아",
+    "country": "중국",
+    "corporation_name": "POSCO-CYPC(연태)",
+    "invoice_legal_name": "POSCO(Yantai）Automotive Processing Center Co., Ltd.",
+    "corporation_type": "가공센터/물류법인",
+    "address": "110 Chang Jiang Road, YEDA, Yantai, Shandong, China 264006",
+    "contact_emails": [
+      "menglei@posco.net",
+      "wangshuo@posco.net",
+      "chenzg@posco.net"
+    ],
+    "hr_expat_emails": [
+      "wangshuo@posco.net",
+      "menglei@posco.net",
+      "chenzg@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 23,
+    "corporation_code": "02JP02",
+    "company": "포스코",
+    "region": "동북아시아",
+    "country": "일본",
+    "corporation_name": "POSCO Japan PC(일본)",
+    "invoice_legal_name": "POSCO Japan PC",
+    "corporation_type": "가공센터/물류법인",
+    "address": "1-6-6 Jinno Nishimachi Toyohashi-si, Aichi-ken, JAPAN",
+    "contact_emails": [
+      "jylee4577@posco.net"
+    ],
+    "hr_expat_emails": [
+      "636390@posco.com",
+      "heejepark@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 24,
+    "corporation_code": "02ID01",
+    "company": "포스코",
+    "region": "동남아시아",
+    "country": "인도네시아",
+    "corporation_name": "PT. KRAKATAU POSCO(인도네시아)",
+    "invoice_legal_name": "PT. KRAKATAU POSCO",
+    "corporation_type": "대표법인",
+    "address": "PT.KRAKATAU POSCO, JI. Afrika No.2 Kawasan Industri KS, Cilegon 42443, Banten, Indonesia",
+    "contact_emails": [
+      "sayid.bs@krakatauposco.co.id"
+    ],
+    "hr_expat_emails": [
+      "songwr@posco.com",
+      "diego_lorca@posco.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 26,
+    "corporation_code": "02ID03",
+    "company": "포스코",
+    "region": "동남아시아",
+    "country": "인도네시아",
+    "corporation_name": "POSCO-IJPC(자카르타)",
+    "invoice_legal_name": "POSCO-Indonesia Jakarta Processing Center",
+    "corporation_type": "가공센터/물류법인",
+    "address": "POSCO-IJPC, Jl.Permata Raya Lot FF-3, Kawasan Industri KIIC Karawang, 41361 - Jawa Barat Indonesia",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "870338@posco.com",
+      "ejunisong_ijpc@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 28,
+    "corporation_code": "02VN01",
+    "company": "포스코",
+    "region": "동남아시아",
+    "country": "베트남",
+    "corporation_name": "POSCO-Vietnam(베트남)",
+    "invoice_legal_name": "POSCO-VIETNAM Co., Ltd.",
+    "corporation_type": "대표법인",
+    "address": "Lot 1, Phu My 2 Industrial Zone, Phu My Ward, Ho Chi Minh City, Vietnam",
+    "contact_emails": [
+      "giang.201627@posco.net",
+      "kimngan@posco.net"
+    ],
+    "hr_expat_emails": [
+      "sjlim1945@posco.com",
+      "limsj@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 29,
+    "corporation_code": "02VN02",
+    "company": "포스코",
+    "region": "동남아시아",
+    "country": "베트남",
+    "corporation_name": "POSCO YAMATO VINA(베트남)",
+    "invoice_legal_name": "POSCO YAMATO VINA",
+    "corporation_type": "생산법인",
+    "address": "N1 Street, Phu My 2 Industrial Zone, Phu My Ward, Ho Chi Minh City, Vietnam",
+    "contact_emails": [
+      "lynguyen189@pyvina.com",
+      "hongthanh@pyvina.com"
+    ],
+    "hr_expat_emails": [
+      "sunggiun@posco.com",
+      "giun.sung@pyvina.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 30,
+    "corporation_code": "02VN03",
+    "company": "포스코",
+    "region": "동남아시아",
+    "country": "베트남",
+    "corporation_name": "POSCO-VST(베트남)",
+    "invoice_legal_name": "POSCO VST CO., LTD.",
+    "corporation_type": "생산법인",
+    "address": "319B Road, Nhon Trach 1 I.Z, Nhon Trach Ward, Dong Nai City, Viet Nam",
+    "contact_emails": [
+      "nguyen.thientrang@posco.net",
+      "le.hien@posco.net"
+    ],
+    "hr_expat_emails": [
+      "jaejin.lee@posco.com",
+      "leejaejin@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 31,
+    "corporation_code": "02VN04",
+    "company": "포스코",
+    "region": "동남아시아",
+    "country": "베트남",
+    "corporation_name": "POSCO Vietnam PC(베트남)-VHPC(호치민)",
+    "invoice_legal_name": "POSCO VIETNAM PROCESSING CENTER JOINT STOCK COMPANY - DONG NAI BRANCH - VHPC",
+    "corporation_type": "가공센터/물류법인",
+    "address": "Nhon Trach V IDZ, Phuoc An Commune, Dong Nai City, Vietnam.",
+    "contact_emails": [
+      "thanh.nguyen@posco.net"
+    ],
+    "hr_expat_emails": [
+      "bj.an@posco.net",
+      "y.w.ma@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 32,
+    "corporation_code": "02VN05",
+    "company": "포스코",
+    "region": "동남아시아",
+    "country": "베트남",
+    "corporation_name": "POSCO Vietnam PC(베트남)-VNPC(하노이)",
+    "invoice_legal_name": "POSCO VIETNAM PROCESSING CENTER JOINT STOCK COMPANY",
+    "corporation_type": "가공센터/물류법인",
+    "address": "Lot D5, Phuc Dien Industrial Zone, Mao Dien commune, Hai Phong City, Viet Nam",
+    "contact_emails": [
+      "thanh.nguyen@posco.net"
+    ],
+    "hr_expat_emails": [
+      "bj.an@posco.net",
+      "y.w.ma@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 33,
+    "corporation_code": "02TH01",
+    "company": "포스코",
+    "region": "동남아시아",
+    "country": "태국",
+    "corporation_name": "POSCO-TCS(태국)",
+    "invoice_legal_name": "POSCO COATED STEEL (THAILAND) CO., LTD.",
+    "corporation_type": "대표법인",
+    "address": "(Head office) 7/448 Moo 6, Amata City Industrial Estate, Mabyangporn Sub-district, Pluakdaeng District, Rayong Province 21140 / TAX ID : 0105556189144",
+    "contact_emails": [
+      "piyaporn.bo@poscotcs.com",
+      "Somrudee.ch@poscotcs.com"
+    ],
+    "hr_expat_emails": [
+      "songjaesu@posco.com",
+      "songjaesu.ptcs@poscotcs.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 34,
+    "corporation_code": "02TH02",
+    "company": "포스코",
+    "region": "동남아시아",
+    "country": "태국",
+    "corporation_name": "POSCO Thainox(태국)",
+    "invoice_legal_name": "POSCO-Thainox Public Company Limited",
+    "corporation_type": "생산법인",
+    "address": "Emporium Tower, Floor 15/6-8, 622 Sukhumvit Road, Klongtan, Klongtoey, Bangkok 10110, Thailand",
+    "contact_emails": [
+      "sm.roh_th@poscothainox.com",
+      "aphiradee@poscothainox.com",
+      "thkang@posco.com",
+      "darakorn@poscothainox.com",
+      "supathanya@poscothainox.com"
+    ],
+    "hr_expat_emails": [
+      "ks.shin@posco.com",
+      "ks.shin_th@poscothainox.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 35,
+    "corporation_code": "02TH03",
+    "company": "포스코",
+    "region": "동남아시아",
+    "country": "태국",
+    "corporation_name": "POSCO Thailand PC(태국)",
+    "invoice_legal_name": "POSCO(Thailand) Co., Ltd",
+    "corporation_type": "가공센터/물류법인",
+    "address": "128/1 Moo5 Wellgrow Industrial Estate T.Bangsamak A.Bangpakong Chachoengsao, Thailand 24180",
+    "contact_emails": [
+      "natthanicha_c@posco.net"
+    ],
+    "hr_expat_emails": [
+      "ychoi@posco.com",
+      "ychoi_th@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 36,
+    "corporation_code": "02MY01",
+    "company": "포스코",
+    "region": "동남아시아",
+    "country": "말레이시아",
+    "corporation_name": "POSCO-Malaysia(말레이시아)",
+    "invoice_legal_name": "POSCO-Malaysia SDN. BHD.",
+    "corporation_type": "대표법인",
+    "address": "Lot 60&61, Jalan Sg. Pinang 5/1, Seksyen 5, Fasa 2A, Taman Perindustrian Pulau Indah, 42920 Pelabuhan Klang, Selangor Darul Ehsan, MALAYSIA",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "hc.jang@posco.com",
+      "hcheol.j@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 37,
+    "corporation_code": "02MY02",
+    "company": "포스코",
+    "region": "동남아시아",
+    "country": "말레이시아",
+    "corporation_name": "POSCO-MKPC(쿠알라룸푸르)",
+    "invoice_legal_name": "POSCO-MKPC SDN BHD",
+    "corporation_type": "가공센터/물류법인",
+    "address": "No.19, Persiaran Sultan Alauddin /KU17, Bandar Sultan Suleiman, 42000 Klang,Selangor, Malaysia",
+    "contact_emails": [
+      "jessie.chok@posco.net"
+    ],
+    "hr_expat_emails": [
+      "emcho@posco.com",
+      "em.cho@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 38,
+    "corporation_code": "02PH01",
+    "company": "포스코",
+    "region": "동남아시아",
+    "country": "필리핀",
+    "corporation_name": "POSCO-PMPC(필리핀)",
+    "invoice_legal_name": "POSCO-PMPC",
+    "corporation_type": "가공센터/물류법인",
+    "address": "FIRST PHILIPPINE INDUSTRIAL PARK, LOT22A, BRGY. ULANGO, TANAUAN CITY, BATANGAS 4232, PHILIPPINES, 4232",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "widon@posco.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 40,
+    "corporation_code": "02IN02",
+    "company": "포스코",
+    "region": "서남아시아",
+    "country": "인도",
+    "corporation_name": "POSCO-Maharashtra(인도)",
+    "invoice_legal_name": "POSCO Maharashtra Steel Private Limited",
+    "corporation_type": "생산법인",
+    "address": "7th Floor, World Trade Center 1, Kharadi, MIDC Knowledge Park, Pune - 411014, Maharashtra, India",
+    "contact_emails": [
+      "chiranjeev.m@posco.net"
+    ],
+    "hr_expat_emails": [
+      "98redhan@posco.com",
+      "wonkyu.han@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 41,
+    "corporation_code": "02IN03",
+    "company": "포스코",
+    "region": "서남아시아",
+    "country": "인도",
+    "corporation_name": "POSCO India PC(인도)",
+    "invoice_legal_name": "Posco India Processing Centre Pvt. Ltd (Centre -Chennai)",
+    "corporation_type": "가공센터/물류법인",
+    "address": "Plot No.RNS 9 12-14, Sipcot Industrial Growth Centre, Vadakkupattu Village, Kanchipuram, Tamil Nadu, 603204",
+    "contact_emails": [
+      "vidyav@posco.net"
+    ],
+    "hr_expat_emails": [
+      "871789@posco.com",
+      "hoch.lee1@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 42,
+    "corporation_code": "02IN04",
+    "company": "포스코",
+    "region": "서남아시아",
+    "country": "인도",
+    "corporation_name": "POSCO India PC(인도)-IDPC(델리)",
+    "invoice_legal_name": "Posco India Processing Centre Pvt. Ltd (Centre -Delhi)",
+    "corporation_type": "가공센터/물류법인",
+    "address": "09th Floor, Wing B ,Milestone Experion Centre, NH-48, Sector 15,Gurgaon, Haryana 122001",
+    "contact_emails": [
+      "vidyav@posco.net"
+    ],
+    "hr_expat_emails": [
+      "871789@posco.com",
+      "hoch.lee1@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 43,
+    "corporation_code": "02IN05",
+    "company": "포스코",
+    "region": "서남아시아",
+    "country": "인도",
+    "corporation_name": "POSCO India PC(인도)-IAPC(암다베드)",
+    "invoice_legal_name": "Posco India Processing Centre Pvt. Ltd (Centre -Ahmedabad)",
+    "corporation_type": "가공센터/물류법인",
+    "address": "E-564, SANAND ENGINEERING ESTATE, GIDC, AHMEDABAD, GUJARAT - 382110",
+    "contact_emails": [
+      "vidyav@posco.net"
+    ],
+    "hr_expat_emails": [
+      "871789@posco.com",
+      "hoch.lee1@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 44,
+    "corporation_code": "02IN06",
+    "company": "포스코",
+    "region": "서남아시아",
+    "country": "인도",
+    "corporation_name": "POSCO India PC(인도)-ICPC(첸나이)",
+    "invoice_legal_name": "Posco India Processing Centre Pvt. Ltd (Centre -Chennai)",
+    "corporation_type": "가공센터/물류법인",
+    "address": "Plot No.RNS 9 12-14, Sipcot Industrial Growth Centre, Vadakkupattu Village, Kanchipuram, Tamil Nadu, 603204",
+    "contact_emails": [
+      "vidyav@posco.net"
+    ],
+    "hr_expat_emails": [
+      "871789@posco.com",
+      "hoch.lee1@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 45,
+    "corporation_code": "02IN07",
+    "company": "포스코",
+    "region": "서남아시아",
+    "country": "인도",
+    "corporation_name": "POSCO-IPPC(푸네)",
+    "invoice_legal_name": "POSCO-India Pune Processing Center. Pvt. Ltd.",
+    "corporation_type": "가공센터/물류법인",
+    "address": "PLOT NO A-9. FLORICULTURE PARK. TALEGAON MIDC, PUNE 410507 , Maharashtra INDIA.",
+    "contact_emails": [
+      "vidyav@posco.net"
+    ],
+    "hr_expat_emails": [
+      "871789@posco.com",
+      "hoch.lee1@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 46,
+    "corporation_code": "02MX01",
+    "company": "포스코",
+    "region": "아메리카",
+    "country": "멕시코",
+    "corporation_name": "POSCO-Mexico(멕시코)",
+    "invoice_legal_name": "POSCO MEXICO S.A. DE C.V. (RFC : PME0612078F7)",
+    "corporation_type": "대표법인",
+    "address": "Boulevard de los rios sin numero, Colonia Puerto industrial de Altamira, C.P 89603, Altamira, Tamaulipas, Mexico",
+    "contact_emails": [
+      "park.alfonso@posco.net"
+    ],
+    "hr_expat_emails": [
+      "eroika205@posco.com",
+      "taehee.lee@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 47,
+    "corporation_code": "02MX02",
+    "company": "포스코",
+    "region": "아메리카",
+    "country": "멕시코",
+    "corporation_name": "POSCO-MPPC(푸에블라)",
+    "invoice_legal_name": "POSCO MPPC S.A. de C.V.",
+    "corporation_type": "가공센터/물류법인",
+    "address": "Carretera 190Km. 0.550 Santa Ana Xalmimilulco, Municipio de Huejotzingo, Puebla. 74169 MEXICO",
+    "contact_emails": [
+      "seongyun.jeong@poscomppc.com"
+    ],
+    "hr_expat_emails": [
+      "jo.sh@posco.com",
+      "shjo@poscomppc.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 48,
+    "corporation_code": "02MX03",
+    "company": "포스코",
+    "region": "아메리카",
+    "country": "멕시코",
+    "corporation_name": "POSCO-MVWPC(비야그란)",
+    "invoice_legal_name": "POSCO-MVWPC",
+    "corporation_type": "가공센터/물류법인",
+    "address": "CARRETERA ALTERNA CELAYA-VILLAGRAN KM 11.7 EL PINTOR VILLAGRAN GUANAJUATO 38260",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "seho1213@posco.com",
+      "leo1213@poscomvwpc.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 49,
+    "corporation_code": "02US02",
+    "company": "포스코",
+    "region": "아메리카",
+    "country": "미국",
+    "corporation_name": "POSCO-AAPC(알라바마)",
+    "invoice_legal_name": "POSCO America Alabama Processing Center Co., Ltd.",
+    "corporation_type": "가공센터/물류법인",
+    "address": "6500 Jefferson Metropolitan Parkway, McCalla, AL 35111",
+    "contact_emails": [
+      "hyein.cheon@poscoaapc.com"
+    ],
+    "hr_expat_emails": [
+      "dmseo@posco.com",
+      "eastman@poscoaapc.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 50,
+    "corporation_code": "02CA01",
+    "company": "포스코",
+    "region": "아메리카",
+    "country": "캐나다",
+    "corporation_name": "POSCO-Canada(캐나다)",
+    "invoice_legal_name": "POSCO Canada Limited",
+    "corporation_type": "기타법인",
+    "address": "2420-1075 W.Georgia St. Vancouver, BC, Canada, V6E 3C9",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "minji.kim@posco.com",
+      "minjikim@poscan.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 51,
+    "corporation_code": "02BR01",
+    "company": "포스코",
+    "region": "아메리카",
+    "country": "브라질",
+    "corporation_name": "POSCO-Brazil(브라질)",
+    "invoice_legal_name": "POSCO BRAZIL LTDA",
+    "corporation_type": "기타법인",
+    "address": "Av. das Américas, 3500 | BI. 5 - Sala 612 - Le Monde Office",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "joonyoup.jung@poscobrazil.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 52,
+    "corporation_code": "02PL02",
+    "company": "포스코",
+    "region": "유럽",
+    "country": "폴란드",
+    "corporation_name": "POSCO-PWPC(폴란드)",
+    "invoice_legal_name": "POSCO-Poland Wroclaw Processing Center Sp. Z o. o.",
+    "corporation_type": "가공센터/물류법인",
+    "address": "Innowacyjna 6, 55-040 Biskupice Podgórne, Poland",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "gujeong@posco.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 53,
+    "corporation_code": "02IT01",
+    "company": "포스코",
+    "region": "유럽",
+    "country": "이탈리아",
+    "corporation_name": "POSCO-ITPC(이탈리아)",
+    "invoice_legal_name": "POSCO-Italy Processing Center",
+    "corporation_type": "가공센터/물류법인",
+    "address": "Via Marco Biagi 17/19 37050 Vallese di Oppeano, Italy",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "yehyun@posco.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 57,
+    "corporation_code": "02TR01",
+    "company": "포스코",
+    "region": "유럽",
+    "country": "튀르키예",
+    "corporation_name": "POSCO ASSAN TST(튀르키예)",
+    "invoice_legal_name": "POSCO ASSAN TST STEEL INDUSTRY",
+    "corporation_type": "생산법인",
+    "address": "POSCO ASSAN TST, Asım Kibar Organize Sanayi Bolgesi 1. cadde No:4 41310 Alikahya Izmit / KOCAELI",
+    "contact_emails": [
+      "melis.uludag@poscoassan.com"
+    ],
+    "hr_expat_emails": [
+      "wide08@posco.com",
+      "gwangsoo.kim@poscoassan.com"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 58,
+    "corporation_code": "02TR02",
+    "company": "포스코",
+    "region": "유럽",
+    "country": "튀르키예",
+    "corporation_name": "POSCO-TNPC(부르사)",
+    "invoice_legal_name": "POSCO TNPC Otomotiv Celik San. Ve Tic. A.S",
+    "corporation_type": "가공센터/물류법인",
+    "address": "HASANAGA  OSB Mah. 13. Cadde No:4  NILUFER/BURSA TURKIYE",
+    "contact_emails": [
+      "jylee2014@posco.net",
+      "kitae@posco.net"
+    ],
+    "hr_expat_emails": [
+      "sms601@posco.com",
+      "sms601@posco.net"
+    ],
+    "active": true
+  },
+  {
+    "status": "활성화",
+    "number": 60,
+    "corporation_code": "01AU01",
+    "company": "포스코홀딩스",
+    "region": "오세아니아",
+    "country": "호주",
+    "corporation_name": "POSCO-Australia(호주)",
+    "invoice_legal_name": "POSCO AUSTRALIA PTY LTD",
+    "corporation_type": "기타법인",
+    "address": "Suite 32.02, Level 32, Governor Phillip Tower, 1 Farrer Place, Sydney NSW 2000",
+    "contact_emails": [],
+    "hr_expat_emails": [
+      "bk.koo@posco.com",
+      "bk.koo9@posco.net"
+    ],
+    "active": true
+  }
+]

@@ -190,8 +190,10 @@ html.sidebar-collapsed .sidebar-restore-tab { display: inline-flex; }
 .dot.none { background: #c5d0dc; }
 .upload-inline { gap: 10px; }
 .upload-inline .form-control { max-width: 280px; }
-.search-inline { display: flex; gap: 8px; }
-.search-inline .form-control { width: 260px; }
+.search-inline { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.search-inline .form-control { width: 220px; }
+.search-inline .form-select { width: auto; min-width: 120px; }
+.text-warning { color: #c45c26; }
 .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; margin: 0; }
 .kv dt { color: var(--muted); font-weight: 500; }
 .kv dd { margin: 0; }
@@ -205,20 +207,6 @@ html.sidebar-collapsed .sidebar-restore-tab { display: inline-flex; }
 .addr-search { position: relative; }
 .addr-search-bar { display: flex; gap: 8px; margin-bottom: 8px; }
 .addr-search-bar .form-control { flex: 1; }
-.addr-results {
-  position: absolute; left: 0; right: 0; z-index: 20; top: 46px;
-  background: #fff; border: 1px solid var(--line); border-radius: 10px;
-  max-height: 260px; overflow: auto; margin: 0; padding: 6px; list-style: none;
-  box-shadow: 0 12px 28px rgba(0,32,96,.12);
-}
-.addr-results li button {
-  width: 100%; text-align: left; border: 0; background: transparent;
-  padding: 8px 10px; border-radius: 8px; color: var(--navy);
-}
-.addr-results li button:hover { background: var(--ice); }
-.addr-results li button small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
-.addr-empty { padding: 10px; color: var(--muted); font-size: 13px; }
-.pac-container { z-index: 10000; }
 
 .login-body {
   min-height: 100vh;
@@ -236,7 +224,6 @@ html.sidebar-collapsed .sidebar-restore-tab { display: inline-flex; }
 .login-card { padding: 36px; }
 .login-card h2 { color: var(--navy); margin-bottom: 16px; }
 .login-card label { margin-top: 10px; font-size: 13px; color: var(--muted); }
-.login-help { margin-top: 16px; font-size: 12px; color: var(--muted); background: var(--ice); padding: 10px 12px; border-radius: 10px; }
 .login-body { position: relative; }
 .login-lang { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,.14); z-index: 3; }
 .login-wrap { margin-top: 28px; }

@@ -112,10 +112,12 @@ def invoice_mail_context(invoice) -> dict[str, str]:
         period = f"{invoice.period_start.strftime('%Y-%m-%d')} ~ {invoice.period_end.strftime('%Y-%m-%d')}"
     amount_fx = float(getattr(invoice, "amount_fx", 0) or 0)
     amount_krw = int(getattr(invoice, "amount_krw", 0) or 0)
+    billed_name = (getattr(invoice, "billed_name", None) or "").strip()
+    billed_code = (getattr(invoice, "billed_code", None) or "").strip()
     return {
         "invoice_no": getattr(invoice, "invoice_no", "") or "",
-        "entity": getattr(getattr(invoice, "subsidiary", None), "name_en", "") or "",
-        "entity_code": getattr(getattr(invoice, "subsidiary", None), "code", "") or "",
+        "entity": billed_name or getattr(getattr(invoice, "subsidiary", None), "name_en", "") or "",
+        "entity_code": billed_code or getattr(getattr(invoice, "subsidiary", None), "code", "") or "",
         "education": getattr(invoice, "education_name", "") or "",
         "period": period,
         "qty": str(getattr(invoice, "qty", "") or ""),
@@ -383,7 +385,7 @@ def wrap_invoice_html(invoice, headline: str, body_text: str) -> str:
               </tr>
               <tr>
                 <td style="padding:6px 0;font-size:13px;line-height:1.45;color:#5B6770;">Billed Entity</td>
-                <td style="padding:6px 0;font-size:13px;line-height:1.45;color:#1b2a4e;">{escape(str(invoice.subsidiary.name_en))}</td>
+                <td style="padding:6px 0;font-size:13px;line-height:1.45;color:#1b2a4e;">{escape(str((getattr(invoice, "billed_name", None) or "").strip() or invoice.subsidiary.name_en))}</td>
               </tr>
             </table>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #E4E8EE;">
@@ -447,10 +449,19 @@ def send_invoice_email(
     kind: str | None = None,
     subject: str | None = None,
     body_text: str | None = None,
+    to_recipients=None,
+    cc_recipients=None,
 ) -> dict:
     hq_recipients = hq_copy_emails()
     extra = [e for e in (extra_recipients or []) if e]
-    if hq_only:
+    if to_recipients is not None or cc_recipients is not None:
+        to_recipients = list(dict.fromkeys(to_recipients or []))
+        cc_recipients = [e for e in dict.fromkeys(cc_recipients or []) if e not in to_recipients]
+        if extra:
+            for email in extra:
+                if email not in to_recipients and email not in cc_recipients:
+                    to_recipients.append(email)
+    elif hq_only:
         to_recipients = list(dict.fromkeys(hq_recipients + extra))
         cc_recipients = []
     else:
@@ -458,7 +469,8 @@ def send_invoice_email(
         for email in extra:
             if email not in to_recipients:
                 to_recipients.append(email)
-        cc_recipients = [e for e in hq_recipients if e not in to_recipients]
+        hr = parse_emails(getattr(invoice.subsidiary, "hr_emails", "") or "")
+        cc_recipients = [e for e in hr if e not in to_recipients]
     recipients = to_recipients + cc_recipients
     if not to_recipients:
         return {"ok": False, "error": "no_email", "recipients": [], "to": [], "cc": []}

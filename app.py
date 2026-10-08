@@ -44,7 +44,20 @@ from regions import REGIONS, apply_region, resolve_region
 from entity_types import ENTITY_TYPES, entity_type_label, resolve_entity_type
 from seed import seed_if_empty
 from hq_settings import load_hq_settings, save_hq_settings
-from address_search import search_english_addresses
+from corporation_master import (
+    MASTER_JSON,
+    contact_emails,
+    emails_from_text,
+    emails_to_text,
+    ensure_login_user,
+    freeze_issued_parties,
+    hr_emails,
+    import_master_json,
+    invoice_party,
+    mark_duplicate_codes,
+    snapshot_invoice_party,
+    split_email_roles,
+)
 
 STATUS_ORDER = ["draft", "issued", "acknowledged", "paid"]
 
@@ -87,6 +100,8 @@ def create_app():
             train_cols = {c["name"] for c in inspector.get_columns("trainings")}
             if "learners" not in train_cols:
                 conn.exec_driver_sql("ALTER TABLE trainings ADD COLUMN learners TEXT DEFAULT ''")
+            if "learner_count" not in train_cols:
+                conn.exec_driver_sql("ALTER TABLE trainings ADD COLUMN learner_count INTEGER DEFAULT 0")
             if "title_en" not in train_cols:
                 conn.exec_driver_sql("ALTER TABLE trainings ADD COLUMN title_en VARCHAR(300) DEFAULT ''")
                 conn.exec_driver_sql("UPDATE trainings SET title_en = title WHERE title_en IS NULL OR title_en = ''")
@@ -96,11 +111,43 @@ def create_app():
                 conn.exec_driver_sql("ALTER TABLE subsidiaries ADD COLUMN notes TEXT DEFAULT ''")
             if "entity_type" not in sub_cols:
                 conn.exec_driver_sql("ALTER TABLE subsidiaries ADD COLUMN entity_type VARCHAR(80) DEFAULT ''")
+            if "list_no" not in sub_cols:
+                conn.exec_driver_sql("ALTER TABLE subsidiaries ADD COLUMN list_no INTEGER")
+            if "company" not in sub_cols:
+                conn.exec_driver_sql("ALTER TABLE subsidiaries ADD COLUMN company VARCHAR(80) DEFAULT ''")
+            if "hr_emails" not in sub_cols:
+                conn.exec_driver_sql("ALTER TABLE subsidiaries ADD COLUMN hr_emails TEXT DEFAULT ''")
+            if "needs_review" not in sub_cols:
+                conn.exec_driver_sql("ALTER TABLE subsidiaries ADD COLUMN needs_review BOOLEAN DEFAULT FALSE")
+            try:
+                for uq in inspector.get_unique_constraints("subsidiaries"):
+                    cols = list(uq.get("column_names") or [])
+                    if cols == ["code"] and uq.get("name"):
+                        conn.exec_driver_sql(f'ALTER TABLE subsidiaries DROP CONSTRAINT IF EXISTS "{uq["name"]}"')
+                for idx in inspector.get_indexes("subsidiaries"):
+                    cols = list(idx.get("column_names") or [])
+                    if idx.get("unique") and cols == ["code"] and idx.get("name"):
+                        conn.exec_driver_sql(f'DROP INDEX IF EXISTS "{idx["name"]}"')
+                        conn.exec_driver_sql(
+                            "CREATE INDEX IF NOT EXISTS ix_subsidiaries_code ON subsidiaries (code)"
+                        )
+            except Exception:
+                pass
+        if "invoices" in table_names:
+            inv_cols = {c["name"] for c in inspector.get_columns("invoices")}
+            if "billed_name" not in inv_cols:
+                conn.exec_driver_sql("ALTER TABLE invoices ADD COLUMN billed_name VARCHAR(200) DEFAULT ''")
+            if "billed_address" not in inv_cols:
+                conn.exec_driver_sql("ALTER TABLE invoices ADD COLUMN billed_address TEXT DEFAULT ''")
+            if "billed_code" not in inv_cols:
+                conn.exec_driver_sql("ALTER TABLE invoices ADD COLUMN billed_code VARCHAR(20) DEFAULT ''")
 
     with Session() as db:
         seed_if_empty(db)
         for sub in db.query(Subsidiary).all():
             apply_region(sub)
+        freeze_issued_parties(db)
+        mark_duplicate_codes(db)
         db.commit()
 
     def db_session():
@@ -172,7 +219,6 @@ def create_app():
             "entity_types": ENTITY_TYPES,
             "entity_type_label": entity_type_label,
             "hq_copy_email": Config.HQ_COPY_EMAIL,
-            "google_maps_key": getattr(Config, "GOOGLE_MAPS_API_KEY", "") or "",
             "mail_live": smtp_configured(),
             "mail_from": getattr(Config, "MAIL_FROM", "") or "",
         }
@@ -370,9 +416,15 @@ def create_app():
     def invoice_compose_recipients(row, kind):
         if kind == "hq":
             return hq_copy_emails(), []
-        to_list = parse_emails(getattr(row.subsidiary, "emails", "") or "")
-        cc_list = [e for e in hq_copy_emails() if e not in to_list]
-        return to_list, cc_list
+        return split_email_roles(contact_emails(row.subsidiary), hr_emails(row.subsidiary))
+
+    def parse_compose_recipients(form, row, kind):
+        extra_to = emails_from_text(form.get("mail_to_extra") or "")
+        extra_cc = emails_from_text(form.get("mail_cc_extra") or "")
+        if form.get("mail_recipients_ready") == "1":
+            return split_email_roles(form.getlist("mail_to") + extra_to, form.getlist("mail_cc") + extra_cc)
+        to_list, cc_list = invoice_compose_recipients(row, kind)
+        return split_email_roles(to_list + extra_to, cc_list + extra_cc)
 
     def render_mail_compose(kind, rows, action, cancel, hidden=None, fill=True):
         rows = list(rows or [])
@@ -385,6 +437,8 @@ def create_app():
             to_list, cc_list = invoice_compose_recipients(row, kind)
             to_parts.extend(to_list)
             cc_parts.extend(cc_list)
+        to_choices = list(dict.fromkeys(to_parts))
+        cc_choices = [e for e in dict.fromkeys(cc_parts) if e.lower() not in {x.lower() for x in to_choices}]
         return render_template(
             "invoices/compose.html",
             kind=kind,
@@ -394,9 +448,12 @@ def create_app():
             cancel=cancel,
             hidden=hidden or {},
             selected_ids=[r.id for r in rows],
-            to_text=", ".join(dict.fromkeys(to_parts)),
-            cc_text=", ".join(dict.fromkeys(cc_parts)),
+            to_choices=to_choices,
+            cc_choices=cc_choices,
+            to_text=", ".join(to_choices),
+            cc_text=", ".join(cc_choices),
             placeholders=mail_placeholder_help(),
+            bulk=len(rows) > 1,
         )
 
     EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
@@ -509,7 +566,7 @@ def create_app():
         apply_invoice_totals(invoice)
 
     def invoice_item_from_training(training, people):
-        qty = max(len(people), 1)
+        qty = billed_qty_for_training(training, max(len(people), 1))
         named = [p["name"] for p in people if p.get("name")]
         return InvoiceItem(
             training_id=training.id,
@@ -754,7 +811,6 @@ def create_app():
         if request.method == "POST":
             payload = {
                 "HQ_COPY_EMAIL": (request.form.get("hq_copy_email") or "").strip(),
-                "GOOGLE_MAPS_API_KEY": (request.form.get("google_maps_api_key") or "").strip(),
                 "PGU_NAME": (request.form.get("pgu_name") or "").strip(),
                 "PGU_DEPT": (request.form.get("pgu_dept") or "").strip(),
                 "PGU_ADDRESS": (request.form.get("pgu_address") or "").replace("\r", "").strip(),
@@ -795,11 +851,13 @@ def create_app():
         return redirect(url_for("hq_settings"))
 
     # ---------- subsidiaries ----------
-    @app.route("/subsidiaries")
-    @admin_required
-    def subsidiaries():
-        db = Session()
+    def subsidiary_query(db):
         qtext = request.args.get("q", "").strip()
+        company = request.args.get("company", "").strip()
+        region = request.args.get("region", "").strip()
+        country = request.args.get("country", "").strip()
+        entity_type = request.args.get("entity_type", "").strip()
+        status = request.args.get("status", "").strip()
         q = db.query(Subsidiary)
         if qtext:
             like = f"%{qtext}%"
@@ -812,13 +870,57 @@ def create_app():
                     Subsidiary.region.ilike(like),
                     Subsidiary.region_en.ilike(like),
                     Subsidiary.entity_type.ilike(like),
+                    Subsidiary.company.ilike(like),
                 )
             )
-        rows = q.order_by(Subsidiary.code.asc()).all()
-        return render_template("subsidiaries/list.html", rows=rows, q=qtext)
+        if company:
+            q = q.filter(Subsidiary.company == company)
+        if region:
+            q = q.filter(or_(Subsidiary.region == region, Subsidiary.region_en == region))
+        if country:
+            q = q.filter(or_(Subsidiary.country == country, Subsidiary.country_en == country))
+        if entity_type:
+            q = q.filter(Subsidiary.entity_type == entity_type)
+        if status in ("active", "inactive"):
+            q = q.filter(Subsidiary.status == status)
+        return q.order_by(Subsidiary.list_no.is_(None), Subsidiary.list_no.asc(), Subsidiary.code.asc(), Subsidiary.id.asc())
+
+    def subsidiary_filter_options(db):
+        rows = db.query(Subsidiary).all()
+        companies = sorted({(r.company or "").strip() for r in rows if (r.company or "").strip()})
+        countries = sorted({(r.country or "").strip() for r in rows if (r.country or "").strip()})
+        return {
+            "q": request.args.get("q", "").strip(),
+            "company": request.args.get("company", "").strip(),
+            "region": request.args.get("region", "").strip(),
+            "country": request.args.get("country", "").strip(),
+            "entity_type": request.args.get("entity_type", "").strip(),
+            "status": request.args.get("status", "").strip(),
+            "companies": companies,
+            "countries": countries,
+        }
+
+    @app.route("/subsidiaries")
+    @admin_required
+    def subsidiaries():
+        db = Session()
+        rows = subsidiary_query(db).all()
+        return render_template(
+            "subsidiaries/list.html",
+            rows=rows,
+            filters=subsidiary_filter_options(db),
+            json_ready=MASTER_JSON.exists(),
+            regions=REGIONS,
+        )
 
     def save_subsidiary(sub, form, db, is_new=False):
         sub.code = (form.get("code") or sub.code or "").strip().upper()
+        try:
+            list_no = int(form.get("list_no") or 0)
+        except (TypeError, ValueError):
+            list_no = 0
+        sub.list_no = list_no or None
+        sub.company = (form.get("company") or "").strip()
         ko, en = resolve_region(form.get("region"), form.get("region_en"), country=form.get("country"), country_en=form.get("country_en"))
         if not ko:
             raise ValueError("region")
@@ -835,24 +937,32 @@ def create_app():
         sub.name_en = (form.get("name_en") or "").strip()
         sub.address_en = (form.get("address_en") or "").strip()
         sub.notes = (form.get("notes") or "").strip()
-        emails = (form.get("emails") or "").replace("\r", "")
-        sub.emails = "; ".join(parse_emails(emails) or [e.strip() for e in emails.replace("\n", ";").split(";") if e.strip()])
+        if hasattr(form, "getlist"):
+            contact = form.getlist("contact_emails")
+            expatriate = form.getlist("hr_emails")
+        else:
+            contact = []
+            expatriate = []
+        if contact or (hasattr(form, "getlist") and "contact_emails" in form):
+            sub.emails = emails_to_text(contact)
+        else:
+            emails = (form.get("emails") or "").replace("\r", "")
+            sub.emails = emails_to_text(emails_from_text(emails) or [e.strip() for e in emails.replace("\n", ";").split(";") if e.strip()])
+        if expatriate or (hasattr(form, "getlist") and "hr_emails" in form):
+            sub.hr_emails = emails_to_text(expatriate)
+        else:
+            sub.hr_emails = emails_to_text(emails_from_text(form.get("hr_emails") or ""))
         sub.phone = (form.get("phone") or "").strip()
         sub.status = form.get("status") or "active"
+        same_code = db.query(Subsidiary).filter(Subsidiary.code == sub.code)
+        if getattr(sub, "id", None):
+            same_code = same_code.filter(Subsidiary.id != sub.id)
+        sub.needs_review = bool(same_code.count())
         sub.updated_at = utcnow()
         if is_new:
             db.add(sub)
             db.flush()
-            db.add(
-                User(
-                    username=sub.code,
-                    password_hash=generate_password_hash(Config.INITIAL_SUBSIDIARY_PASSWORD),
-                    role="subsidiary",
-                    subsidiary_id=sub.id,
-                    must_change_password=True,
-                    is_active=sub.status == "active",
-                )
-            )
+            ensure_login_user(db, sub)
         elif sub.user:
             sub.user.is_active = sub.status == "active"
 
@@ -862,20 +972,29 @@ def create_app():
         db = Session()
         if request.method == "POST":
             code = (request.form.get("code") or "").strip().upper()
-            if db.query(Subsidiary).filter_by(code=code).first():
-                flash(t("duplicate_code"), "danger")
+            if not code:
+                flash(t("required"), "danger")
             else:
                 try:
+                    if db.query(Subsidiary).filter_by(code=code).first():
+                        flash(t("duplicate_code_review"), "warning")
                     sub = Subsidiary(code=code)
                     save_subsidiary(sub, request.form, db, is_new=True)
-                    log_action(db, "subsidiary", sub.code, "CREATE", sub.name_en)
+                    log_action(db, "subsidiary", f"{sub.id}:{sub.code}", "CREATE", sub.name_en)
                     db.commit()
                     flash(t("saved"), "success")
                     return redirect(url_for("subsidiaries"))
                 except Exception:
                     db.rollback()
                     flash(t("required"), "danger")
-        return render_template("subsidiaries/form.html", row=None, regions=REGIONS, entity_types=ENTITY_TYPES)
+        return render_template(
+            "subsidiaries/form.html",
+            row=None,
+            regions=REGIONS,
+            entity_types=ENTITY_TYPES,
+            contact_list=[],
+            hr_list=[],
+        )
 
     @app.route("/subsidiaries/<int:sid>/edit", methods=["GET", "POST"])
     @admin_required
@@ -895,7 +1014,14 @@ def create_app():
             except Exception:
                 db.rollback()
                 flash(t("required"), "danger")
-        return render_template("subsidiaries/form.html", row=row, regions=REGIONS, entity_types=ENTITY_TYPES)
+        return render_template(
+            "subsidiaries/form.html",
+            row=row,
+            regions=REGIONS,
+            entity_types=ENTITY_TYPES,
+            contact_list=emails_from_text(row.emails),
+            hr_list=emails_from_text(row.hr_emails),
+        )
 
     @app.route("/subsidiaries/<int:sid>/reset-password", methods=["POST"])
     @admin_required
@@ -935,27 +1061,15 @@ def create_app():
     @admin_required
     def subsidiaries_export():
         db = Session()
-        qtext = request.args.get("q", "").strip()
-        q = db.query(Subsidiary)
-        if qtext:
-            like = f"%{qtext}%"
-            q = q.filter(
-                or_(
-                    Subsidiary.code.ilike(like),
-                    Subsidiary.name_ko.ilike(like),
-                    Subsidiary.name_en.ilike(like),
-                    Subsidiary.country.ilike(like),
-                    Subsidiary.region.ilike(like),
-                    Subsidiary.region_en.ilike(like),
-                    Subsidiary.entity_type.ilike(like),
-                )
-            )
-        rows = q.order_by(Subsidiary.code.asc()).all()
+        rows = subsidiary_query(db).all()
         wb = Workbook()
         ws = wb.active
         ws.title = "subsidiaries"
         headers = [
+            "id",
+            "list_no",
             "code",
+            "company",
             "region",
             "region_en",
             "country",
@@ -966,14 +1080,19 @@ def create_app():
             "address_en",
             "notes",
             "emails",
+            "hr_emails",
             "phone",
             "status",
+            "needs_review",
         ]
         ws.append(headers)
         for row in rows:
             ws.append(
                 [
+                    row.id,
+                    getattr(row, "list_no", None) or "",
                     row.code,
+                    getattr(row, "company", "") or "",
                     row.region,
                     row.region_en,
                     row.country,
@@ -984,8 +1103,10 @@ def create_app():
                     row.address_en,
                     getattr(row, "notes", "") or "",
                     row.emails,
+                    getattr(row, "hr_emails", "") or "",
                     row.phone,
                     row.status,
+                    "Y" if getattr(row, "needs_review", False) else "",
                 ]
             )
         bio = BytesIO()
@@ -1005,7 +1126,10 @@ def create_app():
         ws = wb.active
         ws.title = "subsidiaries"
         headers = [
+            "id",
+            "list_no",
             "code",
+            "company",
             "region",
             "region_en",
             "country",
@@ -1016,13 +1140,17 @@ def create_app():
             "address_en",
             "notes",
             "emails",
+            "hr_emails",
             "phone",
             "status",
         ]
         ws.append(headers)
         ws.append(
             [
+                "",
+                "99",
                 "08XX01",
+                "포스코",
                 "동남아시아",
                 "Southeast Asia",
                 "샘플",
@@ -1031,8 +1159,9 @@ def create_app():
                 "샘플법인",
                 "POSCO Sample Co., Ltd.",
                 "1 Sample Street, City",
-                "Tax ID / extra remarks",
+                "",
                 "finance@example.com; training@example.com",
+                "hr.expat@example.com",
                 "+82-32-200-0000",
                 "active",
             ]
@@ -1063,40 +1192,80 @@ def create_app():
         created = updated = errors = 0
         for row in rows:
             try:
+                sid = str(norm_key(row, "id", "고유번호") or "").strip()
                 code = str(norm_key(row, "code", "법인코드")).strip().upper()
-                if not code:
+                if not code and not sid:
                     errors += 1
                     continue
-                sub = db.query(Subsidiary).filter_by(code=code).first()
+                sub = None
+                if sid.isdigit():
+                    sub = db.get(Subsidiary, int(sid))
+                if sub is None and code:
+                    named = str(norm_key(row, "name_en", "영문법인명", "official_name", "인보이스내공식법인명") or "").strip()
+                    cands = db.query(Subsidiary).filter_by(code=code).all()
+                    if len(cands) == 1:
+                        sub = cands[0]
+                    elif named:
+                        sub = next((c for c in cands if (c.name_en or "").strip().lower() == named.lower()), None)
                 is_new = sub is None
                 if is_new:
+                    if not code:
+                        errors += 1
+                        continue
                     sub = Subsidiary(code=code)
                 payload = {
-                    "code": code,
+                    "code": code or sub.code,
+                    "list_no": str(norm_key(row, "list_no", "순번", "no") or getattr(sub, "list_no", "") or ""),
+                    "company": str(norm_key(row, "company", "회사") or getattr(sub, "company", "") or ""),
                     "region": str(norm_key(row, "region", "권역") or sub.region or ""),
                     "region_en": str(norm_key(row, "region_en", "권역영문") or getattr(sub, "region_en", "") or ""),
                     "country": str(norm_key(row, "country", "국가") or getattr(sub, "country", "") or ""),
                     "country_en": str(norm_key(row, "country_en", "국가영문") or getattr(sub, "country_en", "") or ""),
                     "entity_type": str(norm_key(row, "entity_type", "해외법인유형", "법인유형") or getattr(sub, "entity_type", "") or ""),
-                    "name_ko": str(norm_key(row, "name_ko", "법인명") or getattr(sub, "name_ko", "") or ""),
-                    "name_en": str(norm_key(row, "name_en", "영문법인명", "official_name") or getattr(sub, "name_en", "") or ""),
-                    "address_en": str(norm_key(row, "address_en", "공식영문주소") or getattr(sub, "address_en", "") or ""),
+                    "name_ko": str(norm_key(row, "name_ko", "법인명", "정식명") or getattr(sub, "name_ko", "") or ""),
+                    "name_en": str(norm_key(row, "name_en", "영문법인명", "official_name", "인보이스내공식법인명") or getattr(sub, "name_en", "") or ""),
+                    "address_en": str(norm_key(row, "address_en", "공식영문주소", "법인주소") or getattr(sub, "address_en", "") or ""),
                     "notes": str(norm_key(row, "notes", "기타정보", "비고") or getattr(sub, "notes", "") or ""),
-                    "emails": str(norm_key(row, "emails", "이메일") or getattr(sub, "emails", "") or ""),
+                    "emails": str(norm_key(row, "emails", "이메일", "담당자이메일") or getattr(sub, "emails", "") or ""),
+                    "hr_emails": str(norm_key(row, "hr_emails", "인사주재원이메일") or getattr(sub, "hr_emails", "") or ""),
                     "phone": str(norm_key(row, "phone", "연락처") or getattr(sub, "phone", "") or ""),
                     "status": str(norm_key(row, "status", "계정상태") or getattr(sub, "status", "active") or "active"),
                 }
                 save_subsidiary(sub, payload, db, is_new=is_new)
                 if is_new:
                     created += 1
-                    log_action(db, "subsidiary", code, "BULK_CREATE", payload["name_en"])
+                    log_action(db, "subsidiary", f"{sub.id}:{sub.code}", "BULK_CREATE", payload["name_en"])
                 else:
                     updated += 1
-                    log_action(db, "subsidiary", code, "BULK_UPDATE", payload["name_en"])
+                    log_action(db, "subsidiary", f"{sub.id}:{sub.code}", "BULK_UPDATE", payload["name_en"])
             except Exception:
                 errors += 1
+        mark_duplicate_codes(db)
         db.commit()
         flash(f"{t('upload_ok')} · {t('created_n')} {created} / {t('updated_n')} {updated} / {t('errors')} {errors}", "success")
+        return redirect(url_for("subsidiaries"))
+
+    @app.route("/subsidiaries/import-json", methods=["POST"])
+    @admin_required
+    def subsidiaries_import_json():
+        db = Session()
+        if not MASTER_JSON.exists():
+            flash(t("master_json_missing"), "danger")
+            return redirect(url_for("subsidiaries"))
+        freeze_issued_parties(db)
+        result = import_master_json(db)
+        log_action(
+            db,
+            "subsidiary",
+            "master",
+            "JSON_IMPORT",
+            f"created={result['created']} updated={result['updated']} errors={result['errors']}",
+        )
+        db.commit()
+        flash(
+            f"{t('master_json_ok')} · {t('created_n')} {result['created']} / {t('updated_n')} {result['updated']} / {t('errors')} {result['errors']}",
+            "success",
+        )
         return redirect(url_for("subsidiaries"))
 
     # ---------- profile (entity) ----------
@@ -1129,10 +1298,7 @@ def create_app():
     def trainings():
         db = Session()
         rows = db.query(Training).order_by(Training.start_date.desc(), Training.id.desc()).all()
-        learner_counts = {}
-        for row in rows:
-            grouped, _ = parse_training_learners(row.learners)
-            learner_counts[row.id] = sum(len(people) for people in grouped.values())
+        learner_counts = {row.id: training_headcount(row) for row in rows}
         extras = training_form_extras(db)
         return render_template(
             "trainings/list.html",
@@ -1149,7 +1315,47 @@ def create_app():
         row.instructor = (form.get("instructor") or "").strip()
         row.unit_price_krw = _as_int(form.get("unit_price_krw"))
         row.learners = (form.get("learners") or "").strip()
+        raw_count = form.get("learner_count")
+        if raw_count in (None, ""):
+            grouped, unknown = parse_training_learners(row.learners)
+            row.learner_count = sum(len(people) for people in grouped.values()) + len(unknown)
+        else:
+            row.learner_count = max(_as_int(raw_count, default=0), 0)
         row.updated_at = utcnow()
+
+    def training_headcount(training):
+        n = int(getattr(training, "learner_count", 0) or 0)
+        if n:
+            return n
+        grouped, unknown = parse_training_learners(getattr(training, "learners", "") or "")
+        return sum(len(people) for people in grouped.values()) + len(unknown)
+
+    def billed_qty_for_training(training, fallback=1):
+        n = int(getattr(training, "learner_count", 0) or 0) if training else 0
+        if n > 0:
+            return n
+        return max(int(fallback or 1), 1)
+
+    def apply_training_headcounts(db, invoice):
+        changed = False
+        for item in invoice.items or []:
+            if not item.training_id:
+                continue
+            training = db.get(Training, item.training_id)
+            if not training:
+                continue
+            qty = billed_qty_for_training(training, item.qty)
+            unit = int(item.unit_price_krw or training.unit_price_krw or 0)
+            amount = qty * unit
+            if item.qty != qty or item.amount_krw != amount:
+                item.qty = qty
+                item.unit_price_krw = unit
+                item.amount_krw = amount
+                changed = True
+        if changed:
+            apply_invoice_totals(invoice)
+            invoice.updated_at = utcnow()
+        return changed
 
     def training_title_en(training):
         return ((getattr(training, "title_en", "") or "") or training.title or "").strip()
@@ -1198,21 +1404,17 @@ def create_app():
         code = entity_code_of(inv)
         changed = False
         for item in inv.items or []:
-            if load_roster(item):
-                continue
             training = db.get(Training, item.training_id) if item.training_id else None
-            people = learners_for_entity(training, code)
-            if not people:
-                continue
-            item.learners = roster_as_text(people)
-            item.learner_roster = dump_roster(people)
-            names = [p["name"] for p in people if p.get("name")]
-            item.learner_name = names[0] if len(names) == 1 else ""
-            item.qty = max(item.qty or 1, len(people))
+            if training and not load_roster(item):
+                people = learners_for_entity(training, code)
+                if people:
+                    item.learners = roster_as_text(people)
+                    item.learner_roster = dump_roster(people)
+                    names = [p["name"] for p in people if p.get("name")]
+                    item.learner_name = names[0] if len(names) == 1 else ""
+                    changed = True
+        if apply_training_headcounts(db, inv):
             changed = True
-        if changed:
-            apply_invoice_totals(inv)
-            inv.updated_at = utcnow()
         return changed
 
     def invoice_roster(invoice):
@@ -1251,6 +1453,7 @@ def create_app():
             "fx_currency": currency or "USD",
             "fx_rate": f"{float(rate):.2f}" if rate not in (None, "") else "",
             "fx_rate_date": (rate_date or date.today()).strftime("%Y-%m-%d") if hasattr(rate_date, "strftime") else str(rate_date or date.today())[:10],
+            "learner_count_value": training_headcount(row) if row else "",
         }
 
     def parse_bulk_fx(form):
@@ -1538,23 +1741,6 @@ def create_app():
             "unit_price_krw": row.unit_price_krw,
         }
 
-    @app.route("/api/address-search")
-    @login_required
-    def api_address_search():
-        query = (request.args.get("q") or "").strip()
-        country = (request.args.get("country") or "").strip()
-        if len(query) < 3:
-            return {"ok": True, "items": []}
-        try:
-            items = search_english_addresses(
-                query,
-                country,
-                getattr(Config, "GOOGLE_MAPS_API_KEY", "") or "",
-            )
-        except Exception:
-            items = []
-        return {"ok": True, "items": items}
-
     # ---------- invoices ----------
     @app.route("/invoices")
     @login_required
@@ -1687,13 +1873,11 @@ def create_app():
             people = parse_people_lines(raw_learners)
             tid_raw = training_ids[i] if i < len(training_ids) else ""
             tid = int(tid_raw) if str(tid_raw).isdigit() else None
-            if not people and tid:
-                training = db.get(Training, tid)
+            training = db.get(Training, tid) if tid else None
+            if not people and training:
                 people = learners_for_entity(training, sub.code)
-            if tid and not people:
-                continue
-            if people:
-                qty = max(qty, len(people))
+            if training:
+                qty = billed_qty_for_training(training, qty)
             names = [p["name"] for p in people if p.get("name")]
             ps = _as_date(starts[i] if i < len(starts) and starts[i] else date.today())
             pe = _as_date(ends[i] if i < len(ends) and ends[i] else ps)
@@ -1826,7 +2010,8 @@ def create_app():
                     "instructor": tr.instructor,
                     "period_start": tr.start_date.strftime("%Y-%m-%d"),
                     "period_end": tr.end_date.strftime("%Y-%m-%d"),
-                    "qty": 1,
+                    "qty": max(int(getattr(tr, "learner_count", 0) or 0), 1),
+                    "learner_count": int(getattr(tr, "learner_count", 0) or 0),
                     "unit_price_krw": tr.unit_price_krw,
                     "learners": "",
                     "learners_by_code": by_code,
@@ -1939,6 +2124,49 @@ def create_app():
             roster=invoice_roster(row),
         )
 
+    def parse_selected_invoice_ids(form):
+        ids = []
+        seen = set()
+        for raw in form.getlist("invoice_ids"):
+            try:
+                iid = int(raw)
+            except (TypeError, ValueError):
+                continue
+            if iid in seen:
+                continue
+            seen.add(iid)
+            ids.append(iid)
+        return ids
+
+    def invoice_pdf_files(row):
+        paths = []
+        if row.pdf_path:
+            paths.append(Path(row.pdf_path))
+        paths.append(invoice_pdf_path(row))
+        seen = set()
+        unique = []
+        for path in paths:
+            key = str(path.resolve()) if path else ""
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            unique.append(path)
+        return unique
+
+    def unlink_paths(paths):
+        for path in paths:
+            try:
+                if path.is_file():
+                    path.unlink()
+            except OSError:
+                pass
+
+    def delete_invoice_row(db, row):
+        paths = invoice_pdf_files(row)
+        log_action(db, "invoice", row.invoice_no, "DELETE", row.education_name)
+        db.delete(row)
+        return paths
+
     @app.route("/invoices/<int:iid>/delete", methods=["POST"])
     @admin_required
     def invoice_delete(iid):
@@ -1947,25 +2175,9 @@ def create_app():
         if not row:
             flash(t("not_found"), "danger")
             return redirect(url_for("invoices"))
-        invoice_no = row.invoice_no
-        pdfs = []
-        if row.pdf_path:
-            pdfs.append(Path(row.pdf_path))
-        pdfs.append(invoice_pdf_path(row))
-        log_action(db, "invoice", invoice_no, "DELETE", row.education_name)
-        db.delete(row)
+        paths = delete_invoice_row(db, row)
         db.commit()
-        seen = set()
-        for path in pdfs:
-            key = str(path.resolve()) if path else ""
-            if not key or key in seen:
-                continue
-            seen.add(key)
-            try:
-                if path.is_file():
-                    path.unlink()
-            except OSError:
-                pass
+        unlink_paths(paths)
         flash(t("invoice_deleted"), "success")
         return redirect(url_for("invoices"))
 
@@ -1980,6 +2192,8 @@ def create_app():
             if row.status != "draft":
                 flash(t("issue_disabled"), "warning")
                 return redirect(url_for("invoice_detail", iid=iid))
+            apply_training_headcounts(db, row)
+            db.commit()
             action = url_for("invoice_issue", iid=iid)
         elif kind == "remind":
             if row.status not in ("issued", "acknowledged"):
@@ -1993,7 +2207,7 @@ def create_app():
         else:
             flash(t("not_found"), "danger")
             return redirect(url_for("invoice_detail", iid=iid))
-        if kind != "hq" and not parse_emails(row.subsidiary.emails):
+        if kind != "hq" and not contact_emails(row.subsidiary):
             flash(t("no_email"), "danger")
             return redirect(url_for("invoice_detail", iid=iid))
         return render_mail_compose(
@@ -2014,11 +2228,14 @@ def create_app():
         if row.status != "draft":
             flash(t("issue_disabled"), "warning")
             return redirect(url_for("invoice_detail", iid=iid))
-        if not parse_emails(row.subsidiary.emails):
+        to_list, cc_list = parse_compose_recipients(request.form, row, "issue")
+        if not to_list:
             flash(t("no_email"), "danger")
             return redirect(url_for("invoice_detail", iid=iid))
         if request.form.get("compose_ready") != "1":
             return redirect(url_for("invoice_compose", iid=iid, kind="issue"))
+        apply_training_headcounts(db, row)
+        snapshot_invoice_party(row)
         path = rebuild_pdf(row)
         mail = send_invoice_email(
             row,
@@ -2026,6 +2243,8 @@ def create_app():
             kind="issue",
             subject=request.form.get("mail_subject"),
             body_text=request.form.get("mail_body"),
+            to_recipients=to_list,
+            cc_recipients=cc_list,
         )
         if not flash_mail_result(mail, "issued_ok", commit=False):
             return redirect(url_for("invoice_detail", iid=iid))
@@ -2095,7 +2314,8 @@ def create_app():
         if not row or row.status not in ("issued", "acknowledged"):
             flash(t("issued_only_remind"), "warning")
             return redirect(url_for("invoice_detail", iid=iid) if row else url_for("invoices"))
-        if not parse_emails(row.subsidiary.emails):
+        to_list, cc_list = parse_compose_recipients(request.form, row, "remind")
+        if not to_list:
             flash(t("no_email"), "danger")
             return redirect(url_for("invoice_detail", iid=iid))
         if request.form.get("compose_ready") != "1":
@@ -2107,6 +2327,8 @@ def create_app():
             kind="remind",
             subject=request.form.get("mail_subject"),
             body_text=request.form.get("mail_body"),
+            to_recipients=to_list,
+            cc_recipients=cc_list,
         )
         if flash_mail_result(mail, "remind_ok", commit=False):
             log_action(db, "invoice", row.invoice_no, "REMIND", mail_log_detail(mail))
@@ -2120,7 +2342,8 @@ def create_app():
         row = db.get(Invoice, iid)
         if not row or row.status == "draft":
             return redirect(url_for("invoices"))
-        if not parse_emails(row.subsidiary.emails):
+        to_list, cc_list = parse_compose_recipients(request.form, row, "resend")
+        if not to_list:
             flash(t("no_email"), "danger")
             return redirect(url_for("invoice_detail", iid=iid))
         if request.form.get("compose_ready") != "1":
@@ -2132,6 +2355,8 @@ def create_app():
             kind="resend",
             subject=request.form.get("mail_subject"),
             body_text=request.form.get("mail_body"),
+            to_recipients=to_list,
+            cc_recipients=cc_list,
         )
         if flash_mail_result(mail, "mail_resent", commit=False):
             log_action(db, "invoice", row.invoice_no, "RESEND", mail_log_detail(mail))
@@ -2142,13 +2367,7 @@ def create_app():
     @admin_required
     def invoices_bulk_remind():
         db = Session()
-        raw_ids = request.form.getlist("invoice_ids")
-        ids = []
-        for raw in raw_ids:
-            try:
-                ids.append(int(raw))
-            except (TypeError, ValueError):
-                continue
+        ids = parse_selected_invoice_ids(request.form)
         if not ids:
             flash(t("bulk_remind_none"), "warning")
             return redirect(url_for("invoices", **request.args))
@@ -2174,7 +2393,8 @@ def create_app():
         sent = failed = skipped = 0
         via = "outbox"
         for row in rows:
-            if not parse_emails(getattr(row.subsidiary, "emails", "") or ""):
+            to_list, cc_list = parse_compose_recipients(request.form, row, "remind")
+            if not to_list:
                 skipped += 1
                 continue
             try:
@@ -2185,6 +2405,8 @@ def create_app():
                     kind="remind",
                     subject=subject,
                     body_text=body_text,
+                    to_recipients=to_list,
+                    cc_recipients=cc_list,
                 )
                 if mail.get("ok"):
                     sent += 1
@@ -2206,6 +2428,109 @@ def create_app():
             flash(f"{t('hq_bulk_fail')} {failed}{t('rows')}", "warning")
         if not sent and not failed and not skipped:
             flash(t("bulk_remind_none"), "warning")
+        return redirect(url_for("invoices", **request.args))
+
+    @app.route("/invoices/bulk-issue", methods=["POST"])
+    @admin_required
+    def invoices_bulk_issue():
+        db = Session()
+        ids = parse_selected_invoice_ids(request.form)
+        if not ids:
+            flash(t("bulk_issue_none"), "warning")
+            return redirect(url_for("invoices", **request.args))
+        rows = (
+            db.query(Invoice)
+            .filter(Invoice.id.in_(ids), Invoice.status == "draft")
+            .order_by(Invoice.year.asc(), Invoice.half.asc(), Invoice.seq.asc())
+            .all()
+        )
+        if not rows:
+            flash(t("bulk_issue_none"), "warning")
+            return redirect(url_for("invoices", **request.args))
+        if request.form.get("compose_ready") != "1":
+            for row in rows:
+                apply_training_headcounts(db, row)
+            db.commit()
+            return render_mail_compose(
+                "issue",
+                rows,
+                url_for("invoices_bulk_issue", **request.args),
+                url_for("invoices", **request.args),
+                fill=False,
+            )
+        subject = request.form.get("mail_subject")
+        body_text = request.form.get("mail_body")
+        sent = failed = skipped = 0
+        via = "outbox"
+        for row in rows:
+            to_list, cc_list = parse_compose_recipients(request.form, row, "issue")
+            if not to_list:
+                skipped += 1
+                continue
+            try:
+                apply_training_headcounts(db, row)
+                snapshot_invoice_party(row)
+                path = rebuild_pdf(row)
+                mail = send_invoice_email(
+                    row,
+                    path,
+                    kind="issue",
+                    subject=subject,
+                    body_text=body_text,
+                    to_recipients=to_list,
+                    cc_recipients=cc_list,
+                )
+                if mail.get("ok"):
+                    sent += 1
+                    if mail.get("via") == "smtp":
+                        via = "smtp"
+                    row.status = "issued"
+                    row.issued_at = utcnow()
+                    row.issued_by = current_user().username
+                    row.document_date = date.today()
+                    log_action(db, "invoice", row.invoice_no, "ISSUE", mail_log_detail(mail))
+                else:
+                    failed += 1
+            except Exception:
+                failed += 1
+        db.commit()
+        if sent:
+            flash(f"{t('bulk_issue_ok')} {sent}{t('rows')}", "success")
+            if via == "outbox":
+                flash(t("email_saved_outbox"), "info")
+        if skipped:
+            flash(f"{t('no_email')} {skipped}{t('rows')}", "warning")
+        if failed:
+            flash(f"{t('hq_bulk_fail')} {failed}{t('rows')}", "warning")
+        if not sent and not failed and not skipped:
+            flash(t("bulk_issue_none"), "warning")
+        return redirect(url_for("invoices", **request.args))
+
+    @app.route("/invoices/bulk-delete", methods=["POST"])
+    @admin_required
+    def invoices_bulk_delete():
+        db = Session()
+        ids = parse_selected_invoice_ids(request.form)
+        if not ids:
+            flash(t("bulk_delete_none"), "warning")
+            return redirect(url_for("invoices", **request.args))
+        rows = (
+            db.query(Invoice)
+            .filter(Invoice.id.in_(ids))
+            .order_by(Invoice.year.asc(), Invoice.half.asc(), Invoice.seq.asc())
+            .all()
+        )
+        if not rows:
+            flash(t("bulk_delete_none"), "warning")
+            return redirect(url_for("invoices", **request.args))
+        deleted = 0
+        paths = []
+        for row in rows:
+            paths.extend(delete_invoice_row(db, row))
+            deleted += 1
+        db.commit()
+        unlink_paths(paths)
+        flash(f"{t('bulk_delete_ok')} {deleted}{t('rows')}", "success")
         return redirect(url_for("invoices", **request.args))
 
     @app.route("/invoices/hq-copy", methods=["POST"])
@@ -2243,6 +2568,7 @@ def create_app():
                     row,
                     path,
                     kind="hq",
+                    hq_only=True,
                     subject=subject,
                     body_text=body_text,
                 )

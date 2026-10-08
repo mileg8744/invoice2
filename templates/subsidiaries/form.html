@@ -3,11 +3,30 @@
 {% block page_title %}{% if row %}{{ t('edit') }}{% else %}{{ t('new_subsidiary') }}{% endif %}{% endblock %}
 {% block content %}
 <div class="card-panel" style="max-width:860px">
+  {% if row and row.needs_review %}
+  <div class="alert alert-warning">{{ t('needs_review_help') }} · ID {{ row.id }} · {{ row.code }}</div>
+  {% endif %}
   <form method="post">
     <div class="row g-3">
-      <div class="col-md-4">
+      <div class="col-md-3">
+        <label class="form-label">{{ t('list_no') }}</label>
+        <input class="form-control" name="list_no" value="{{ row.list_no if row and row.list_no else '' }}">
+      </div>
+      <div class="col-md-3">
         <label class="form-label">{{ t('code') }}</label>
-        <input class="form-control" name="code" value="{{ row.code if row else '' }}" {% if row %}readonly{% endif %} required>
+        <input class="form-control" name="code" value="{{ row.code if row else '' }}" required>
+        {% if row %}<p class="muted tiny mb-0">ID {{ row.id }}</p>{% endif %}
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">{{ t('company') }}</label>
+        <input class="form-control" name="company" value="{{ row.company if row else '' }}" placeholder="{{ t('company_ph') }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">{{ t('account_status') }}</label>
+        <select class="form-select" name="status">
+          <option value="active" {% if not row or row.status == 'active' %}selected{% endif %}>{{ t('active') }}</option>
+          <option value="inactive" {% if row and row.status == 'inactive' %}selected{% endif %}>{{ t('inactive') }}</option>
+        </select>
       </div>
       <div class="col-md-4">
         <label class="form-label">{{ t('region') }}</label>
@@ -20,7 +39,7 @@
       </div>
       <div class="col-md-4">
         <label class="form-label">{{ t('entity_type') }}</label>
-        <select class="form-select" name="entity_type" required>
+        <select class="form-select" name="entity_type">
           <option value="">{{ t('select') }}</option>
           {% for ko, en in entity_types %}
           <option value="{{ ko }}" {% if row and row.entity_type == ko %}selected{% endif %}>{% if lang == 'en' %}{{ en }}{% else %}{{ ko }}{% endif %}</option>
@@ -28,12 +47,16 @@
         </select>
       </div>
       <div class="col-md-4">
+        <label class="form-label">{{ t('phone') }}</label>
+        <input class="form-control" name="phone" value="{{ row.phone if row else '' }}">
+      </div>
+      <div class="col-md-4">
         <label class="form-label">{{ t('country') }}</label>
         <input class="form-control" name="country" value="{{ row.country if row else '' }}" required>
       </div>
       <div class="col-md-8">
         <label class="form-label">{{ t('country') }} (EN)</label>
-        <input class="form-control" name="country_en" value="{{ row.country_en if row else '' }}" required>
+        <input class="form-control" name="country_en" value="{{ row.country_en if row else '' }}">
       </div>
       <div class="col-md-6">
         <label class="form-label">{{ t('name') }}</label>
@@ -45,24 +68,51 @@
       </div>
       <div class="col-12">
         <label class="form-label">{{ t('address_en') }}</label>
-        {{ address_en_field('address_en', row.address_en if row else '', 2, false, row.country_en if row else '') }}
+        {{ address_en_field('address_en', row.address_en if row else '', 2, false, row.country_en if row else '', row.name_en if row else '') }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">{{ t('emails') }}</label>
+        <div data-email-list="contact_emails">
+          <div class="email-rows">
+            {% for email in contact_list %}
+            <div class="email-row d-flex gap-2 mb-2">
+              <input class="form-control" type="email" name="contact_emails" value="{{ email }}">
+              <button class="btn btn-ghost js-email-del" type="button">{{ t('delete') }}</button>
+            </div>
+            {% endfor %}
+            {% if not contact_list %}
+            <div class="email-row d-flex gap-2 mb-2">
+              <input class="form-control" type="email" name="contact_emails" placeholder="{{ t('unregistered') }}">
+              <button class="btn btn-ghost js-email-del" type="button">{{ t('delete') }}</button>
+            </div>
+            {% endif %}
+          </div>
+          <button class="btn btn-sm btn-outline-navy js-email-add" type="button">{{ t('add_email') }}</button>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">{{ t('hr_emails') }}</label>
+        <div data-email-list="hr_emails">
+          <div class="email-rows">
+            {% for email in hr_list %}
+            <div class="email-row d-flex gap-2 mb-2">
+              <input class="form-control" type="email" name="hr_emails" value="{{ email }}">
+              <button class="btn btn-ghost js-email-del" type="button">{{ t('delete') }}</button>
+            </div>
+            {% endfor %}
+            {% if not hr_list %}
+            <div class="email-row d-flex gap-2 mb-2">
+              <input class="form-control" type="email" name="hr_emails" placeholder="{{ t('unregistered') }}">
+              <button class="btn btn-ghost js-email-del" type="button">{{ t('delete') }}</button>
+            </div>
+            {% endif %}
+          </div>
+          <button class="btn btn-sm btn-outline-navy js-email-add" type="button">{{ t('add_email') }}</button>
+        </div>
       </div>
       <div class="col-12">
         <label class="form-label">{{ t('extra_info') }}</label>
         <textarea class="form-control" name="notes" rows="3" placeholder="{{ t('extra_info_hint') }}">{{ row.notes if row else '' }}</textarea>
-      </div>
-      <div class="col-md-8">
-        <label class="form-label">{{ t('emails') }}</label>
-        <textarea class="form-control" name="emails" rows="3" placeholder="{{ t('emails_hint') }}">{{ row.emails if row else '' }}</textarea>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">{{ t('phone') }}</label>
-        <input class="form-control" name="phone" value="{{ row.phone if row else '' }}">
-        <label class="form-label mt-3">{{ t('account_status') }}</label>
-        <select class="form-select" name="status">
-          <option value="active" {% if not row or row.status == 'active' %}selected{% endif %}>{{ t('active') }}</option>
-          <option value="inactive" {% if row and row.status == 'inactive' %}selected{% endif %}>{{ t('inactive') }}</option>
-        </select>
       </div>
     </div>
     <div class="mt-4 d-flex gap-2">

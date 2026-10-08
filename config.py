@@ -40,7 +40,6 @@ class Config:
     MAIL_FROM_NAME = (os.environ.get("MAIL_FROM_NAME") or "POSCO Group University").strip()
     PORTAL_URL = (os.environ.get("PORTAL_URL") or "https://invoice2-icp0.onrender.com").strip()
     HQ_COPY_EMAIL = os.environ.get("HQ_COPY_EMAIL", "hoan3532@poscohrd.com")
-    GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 
     BANK_NAME = "KEB HANA BANK"
     BANK_BRANCH = "Songdosindosi Branch"

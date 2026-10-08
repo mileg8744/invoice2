@@ -1,10 +1,9 @@
-{% macro address_en_field(name, value, rows=3, required=false, country='') %}
-<div class="addr-search" data-country="{{ country }}" data-empty="{{ t('address_search_none') }}">
+{% macro address_en_field(name, value, rows=3, required=false, country='', company='') %}
+<div class="addr-search" data-country="{{ country }}" data-company="{{ company }}">
   <div class="addr-search-bar">
     <input class="form-control js-addr-q" type="text" autocomplete="off" placeholder="{{ t('address_search_ph') }}">
     <button class="btn btn-outline-navy js-addr-google" type="button">{{ t('google_address_search') }}</button>
   </div>
-  <ul class="addr-results js-addr-results" hidden></ul>
   <textarea class="form-control js-addr-target" name="{{ name }}" rows="{{ rows }}" {% if required %}required{% endif %}>{{ value }}</textarea>
   <p class="muted mt-2 mb-0">{{ t('address_search_hint') }}</p>
 </div>

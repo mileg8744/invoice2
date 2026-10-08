@@ -10,9 +10,10 @@
         <select class="form-select" name="subsidiary_id" required>
           <option value="">{{ t('select') }}</option>
           {% for s in subs %}
-          <option value="{{ s.id }}" data-code="{{ s.code }}" {% if row and row.subsidiary_id == s.id %}selected{% endif %}>{{ s.code }} · {{ s.name_en }}</option>
+          <option value="{{ s.id }}" data-code="{{ s.code }}" data-name="{{ s.name_en }}" data-address="{{ s.address_en }}" {% if row and row.subsidiary_id == s.id %}selected{% endif %}>{{ s.code }} · {{ s.name_en }}</option>
           {% endfor %}
         </select>
+        <div class="tiny muted mt-2" id="entityPreview"></div>
       </div>
       <div class="col-md-2">
         <label class="form-label">{{ t('document_date') }}</label>
@@ -77,6 +78,20 @@
   const linesEl = document.getElementById('programLines');
   const catalogById = Object.fromEntries(CATALOG.map(t => [String(t.id), t]));
   const subSelect = document.querySelector('[name="subsidiary_id"]');
+  const entityPreview = document.getElementById('entityPreview');
+  function renderEntityPreview() {
+    if (!entityPreview || !subSelect) return;
+    const opt = subSelect.selectedOptions && subSelect.selectedOptions[0];
+    if (!opt || !opt.value) {
+      entityPreview.textContent = '';
+      return;
+    }
+    const name = (opt.dataset && opt.dataset.name) || '';
+    const address = (opt.dataset && opt.dataset.address) || '';
+    entityPreview.innerHTML = `<div><b>${name}</b></div><div>${address}</div>`;
+  }
+  subSelect?.addEventListener('change', renderEntityPreview);
+  renderEntityPreview();
 
   function selectedEntityCode() {
     const opt = subSelect && subSelect.selectedOptions && subSelect.selectedOptions[0];
@@ -91,12 +106,12 @@
   }
 
   function withCatalogLearners(data) {
-    if (!data || !data.learners_by_code) return data || {};
+    if (!data) return data || {};
     const learners = learnersTextFor(data);
-    const count = learners.split(/\n/).map(s => s.trim()).filter(Boolean).length;
+    const headcount = Number(data.learner_count || data.qty || 1) || 1;
     return Object.assign({}, data, {
       learners,
-      qty: Math.max(Number(data.qty || 1), count || 1),
+      qty: headcount,
     });
   }
 
@@ -157,10 +172,7 @@
   }
 
   function trainingHasLearners(tid) {
-    const cat = catalogById[String(tid || '')];
-    const code = selectedEntityCode();
-    if (!cat || !code) return false;
-    return Boolean(String((cat.learners_by_code || {})[code] || '').trim());
+    return Boolean(catalogById[String(tid || '')] && selectedEntityCode());
   }
 
   function catalogLabel(tr) {
@@ -206,14 +218,17 @@
     document.querySelectorAll('.program-line').forEach(el => {
       const tid = (el.querySelector('[name="item_training_id"]') || {}).value;
       const cat = tid ? catalogById[String(tid)] : null;
-      if (!cat || !cat.learners_by_code) return;
+      if (!cat) return;
       const ta = el.querySelector('.item-learners');
       if (!ta) return;
       if (!force && (ta.value || '').trim()) return;
       const text = learnersTextFor(cat);
       ta.value = text;
-      const count = text.split(/\n/).map(s => s.trim()).filter(Boolean).length;
-      if (count) el.querySelector('.item-qty').value = count;
+      const qtyEl = el.querySelector('.item-qty');
+      const headcount = Number(cat.learner_count || cat.qty || 0);
+      if (headcount > 0 && (force || !(qtyEl.value && Number(qtyEl.value) > 0))) {
+        qtyEl.value = headcount;
+      }
     });
     recalc();
   }
@@ -270,11 +285,13 @@
   function recalc() {
     let krw = 0;
     document.querySelectorAll('.program-line').forEach(el => {
-      const learners = (el.querySelector('.item-learners').value || '').split(/\n/).map(s => s.trim()).filter(Boolean);
+      const tid = (el.querySelector('[name="item_training_id"]') || {}).value;
+      const cat = tid ? catalogById[String(tid)] : null;
       const qtyInput = el.querySelector('.item-qty');
       let qty = Number(qtyInput.value || 1);
-      if (learners.length) {
-        qty = Math.max(qty, learners.length);
+      const headcount = Number((cat && (cat.learner_count || cat.qty)) || 0);
+      if (headcount > 0) {
+        qty = headcount;
         qtyInput.value = qty;
       }
       const unit = parseKrw(el.querySelector('.item-unit').value);

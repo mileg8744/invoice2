@@ -3,11 +3,41 @@
 {% block content %}
 <div class="toolbar">
   <form class="search-inline" method="get">
-    <input class="form-control" name="q" value="{{ q }}" placeholder="{{ t('search') }}">
-    <button class="btn btn-navy" type="submit">{{ t('search') }}</button>
+    <input class="form-control" name="q" value="{{ filters.q }}" placeholder="{{ t('search_entity_hint') }}">
+    <select class="form-select" name="company">
+      <option value="">{{ t('company') }}</option>
+      {% for c in filters.companies %}
+      <option value="{{ c }}" {% if filters.company == c %}selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+    <select class="form-select" name="region">
+      <option value="">{{ t('region') }}</option>
+      {% for ko, en in regions %}
+      <option value="{{ ko }}" {% if filters.region == ko %}selected{% endif %}>{% if lang == 'en' %}{{ en }}{% else %}{{ ko }}{% endif %}</option>
+      {% endfor %}
+    </select>
+    <select class="form-select" name="country">
+      <option value="">{{ t('country') }}</option>
+      {% for c in filters.countries %}
+      <option value="{{ c }}" {% if filters.country == c %}selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+    <select class="form-select" name="entity_type">
+      <option value="">{{ t('entity_type') }}</option>
+      {% for ko, en in entity_types %}
+      <option value="{{ ko }}" {% if filters.entity_type == ko %}selected{% endif %}>{% if lang == 'en' %}{{ en }}{% else %}{{ ko }}{% endif %}</option>
+      {% endfor %}
+    </select>
+    <select class="form-select" name="status">
+      <option value="">{{ t('account_status') }}</option>
+      <option value="active" {% if filters.status == 'active' %}selected{% endif %}>{{ t('active') }}</option>
+      <option value="inactive" {% if filters.status == 'inactive' %}selected{% endif %}>{{ t('inactive') }}</option>
+    </select>
+    <button class="btn btn-navy" type="submit">{{ t('filter') }}</button>
+    <a class="btn btn-ghost" href="{{ url_for('subsidiaries') }}">{{ t('reset') }}</a>
   </form>
   <div class="toolbar-right">
-    <a class="btn btn-outline-navy" href="{{ url_for('subsidiaries_export', q=q) }}"><i class="bi bi-file-earmark-excel"></i> {{ t('export_excel') }}</a>
+    <a class="btn btn-outline-navy" href="{{ url_for('subsidiaries_export', **request.args) }}"><i class="bi bi-file-earmark-excel"></i> {{ t('export_excel') }}</a>
     <a class="btn btn-outline-navy" href="{{ url_for('subsidiary_template') }}"><i class="bi bi-download"></i> {{ t('download_template') }}</a>
     <a class="btn btn-navy" href="{{ url_for('subsidiary_new') }}"><i class="bi bi-plus"></i> {{ t('new_subsidiary') }}</a>
   </div>
@@ -19,6 +49,13 @@
     <input class="form-control" type="file" name="file" accept=".xlsx,.xls,.csv" required>
     <button class="btn btn-navy" type="submit">{{ t('upload') }}</button>
   </form>
+  {% if json_ready %}
+  <form class="upload-inline mt-3" method="post" action="{{ url_for('subsidiaries_import_json') }}" onsubmit="return confirm('{{ t('confirm_master_json') }}');">
+    <strong>{{ t('master_json') }}</strong>
+    <button class="btn btn-outline-navy" type="submit">{{ t('master_json_run') }}</button>
+    <span class="muted">{{ t('master_json_hint') }}</span>
+  </form>
+  {% endif %}
 </div>
 
 <section class="card-panel">
@@ -26,13 +63,15 @@
     <table class="table table-clean align-middle">
       <thead>
         <tr>
+          <th>{{ t('list_no') }}</th>
           <th>{{ t('code') }}</th>
+          <th>{{ t('company') }}</th>
           <th>{{ t('region') }}</th>
           <th>{{ t('country') }}</th>
           <th>{{ t('entity_type') }}</th>
           <th>{{ t('name') }}</th>
-          <th>{{ t('address_en') }}</th>
           <th>{{ t('emails') }}</th>
+          <th>{{ t('hr_emails') }}</th>
           <th>{{ t('account_status') }}</th>
           <th>{{ t('actions') }}</th>
         </tr>
@@ -40,13 +79,20 @@
       <tbody>
         {% for row in rows %}
         <tr>
-          <td class="mono">{{ row.code }}</td>
+          <td class="mono">{{ row.list_no or '-' }}</td>
+          <td class="mono">
+            {{ row.code }}
+            {% if row.needs_review %}
+            <div class="tiny text-warning">{{ t('needs_review') }}</div>
+            {% endif %}
+          </td>
+          <td>{{ row.company or '-' }}</td>
           <td>{% if lang == 'en' %}{{ row.region_en }}{% else %}{{ row.region }}{% endif %}</td>
-          <td>{% if lang == 'en' %}{{ row.country_en }}{% else %}{{ row.country }}{% endif %}</td>
+          <td>{% if lang == 'en' %}{{ row.country_en or row.country }}{% else %}{{ row.country }}{% endif %}</td>
           <td>{{ entity_type_label(row.entity_type, lang) or '-' }}</td>
-          <td>{{ row.name_ko }}<div class="tiny">{{ row.name_en }}</div></td>
-          <td class="clamp">{{ row.address_en }}</td>
-          <td class="clamp">{{ row.emails }}</td>
+          <td>{{ row.name_ko or t('unregistered') }}<div class="tiny">{{ row.name_en or t('unregistered') }}</div></td>
+          <td class="clamp">{% if row.emails %}{{ row.emails }}{% else %}<span class="muted">{{ t('unregistered') }}</span>{% endif %}</td>
+          <td class="clamp">{% if row.hr_emails %}{{ row.hr_emails }}{% else %}<span class="muted">{{ t('unregistered') }}</span>{% endif %}</td>
           <td>
             <span class="badge-status {% if row.status == 'active' %}s-acknowledged{% else %}s-draft{% endif %}">
               {{ t(row.status) if row.status in ['active','inactive'] else row.status }}
@@ -63,7 +109,7 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="9" class="empty">{{ t('no_data') }}</td></tr>
+        <tr><td colspan="11" class="empty">{{ t('no_data') }}</td></tr>
         {% endfor %}
       </tbody>
     </table>

@@ -31,33 +31,84 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  loadGoogleMaps(window.PGU_GOOGLE_MAPS_KEY || "", bindAddressSearch);
-  bindBulkRemind();
+  bindAddressSearch();
+  bindBulkInvoiceActions();
+  bindEmailLists();
 });
 
-function bindBulkRemind() {
-  const form = document.getElementById("bulk-remind-form");
+function bindEmailLists() {
+  document.querySelectorAll("[data-email-list]").forEach((box) => {
+    const name = box.getAttribute("data-email-list");
+    const rows = box.querySelector(".email-rows");
+    if (!rows) return;
+    box.addEventListener("click", (ev) => {
+      if (ev.target.closest(".js-email-add")) {
+        ev.preventDefault();
+        const row = document.createElement("div");
+        row.className = "email-row d-flex gap-2 mb-2";
+        row.innerHTML =
+          `<input class="form-control" type="email" name="${name}" placeholder="">` +
+          `<button class="btn btn-ghost js-email-del" type="button">${ev.target.textContent.includes("Add") ? "Delete" : "삭제"}</button>`;
+        rows.appendChild(row);
+        row.querySelector("input")?.focus();
+      }
+      if (ev.target.closest(".js-email-del")) {
+        ev.preventDefault();
+        ev.target.closest(".email-row")?.remove();
+        if (!rows.querySelector(".email-row")) {
+          const row = document.createElement("div");
+          row.className = "email-row d-flex gap-2 mb-2";
+          row.innerHTML =
+            `<input class="form-control" type="email" name="${name}">` +
+            `<button class="btn btn-ghost js-email-del" type="button">삭제</button>`;
+          rows.appendChild(row);
+        }
+      }
+    });
+  });
+}
+
+function bindBulkInvoiceActions() {
+  const form = document.getElementById("bulk-invoice-form");
   if (!form) return;
-  const master = document.getElementById("select-issued");
-  const boxes = () => [...document.querySelectorAll(".js-issued-check:not(:disabled)")];
+  const master = document.getElementById("select-invoices");
+  const boxes = () => [...document.querySelectorAll(".js-invoice-check")];
+  const needed = (kind) => {
+    const selected = boxes().filter((el) => el.checked);
+    if (kind === "remind") return selected.filter((el) => el.dataset.status === "issued");
+    if (kind === "issue") return selected.filter((el) => el.dataset.status === "draft");
+    return selected;
+  };
   master?.addEventListener("change", () => {
     boxes().forEach((el) => {
       el.checked = master.checked;
     });
   });
   document.addEventListener("change", (ev) => {
-    if (!master || !ev.target.classList.contains("js-issued-check")) return;
+    if (!master || !ev.target.classList.contains("js-invoice-check")) return;
     const all = boxes();
     master.checked = all.length > 0 && all.every((el) => el.checked);
   });
+  function bulkKind(ev) {
+    const fromSubmitter = ev && ev.submitter && ev.submitter.dataset.bulkAction;
+    return fromSubmitter || form.dataset.pendingAction || "";
+  }
+  form.querySelectorAll("[data-bulk-action]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      form.dataset.pendingAction = btn.dataset.bulkAction || "";
+    });
+  });
   form.addEventListener("submit", (ev) => {
-    const selected = boxes().filter((el) => el.checked).length;
-    if (!selected) {
+    const kind = bulkKind(ev);
+    const selected = needed(kind);
+    if (!selected.length) {
       ev.preventDefault();
-      window.alert(form.dataset.needOne || "");
+      const key = kind === "issue" ? "needIssue" : kind === "delete" ? "needDelete" : "needRemind";
+      window.alert(form.dataset[key] || "");
       return;
     }
-    if (!window.confirm(form.dataset.confirm || "")) {
+    const confirmKey = kind === "issue" ? "confirmIssue" : kind === "delete" ? "confirmDelete" : "confirmRemind";
+    if (!window.confirm(form.dataset[confirmKey] || "")) {
       ev.preventDefault();
     }
   });
@@ -95,182 +146,65 @@ window.pguParseKrw = pguParseKrw;
 window.pguFormatKrw = pguFormatKrw;
 window.pguBindKrw = bindKrwInputs;
 
-function loadGoogleMaps(key, done) {
-  if (window.google && window.google.maps && window.google.maps.places) {
-    done();
-    return;
-  }
-  if (!key) {
-    done();
-    return;
-  }
-  const existing = document.getElementById("google-maps-sdk");
-  if (existing) {
-    existing.addEventListener("load", () => done(), { once: true });
-    existing.addEventListener("error", () => done(), { once: true });
-    return;
-  }
-  const script = document.createElement("script");
-  script.id = "google-maps-sdk";
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&language=en`;
-  script.async = true;
-  script.onload = () => done();
-  script.onerror = () => done();
-  document.head.appendChild(script);
+function uniqueSearchParts(parts) {
+  const seen = new Set();
+  const out = [];
+  parts.forEach((part) => {
+    const text = String(part || "").trim();
+    if (!text) return;
+    const key = text.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(text);
+  });
+  return out;
+}
+
+function mapsSearchQuery(box) {
+  const form = box.closest("form");
+  const typed = (box.querySelector(".js-addr-q")?.value || "").trim();
+  const company = (
+    form?.querySelector('[name="name_en"]')?.value ||
+    form?.querySelector('[name="pgu_name"]')?.value ||
+    box.getAttribute("data-company") ||
+    ""
+  ).trim();
+  const country = (
+    form?.querySelector('[name="country_en"]')?.value ||
+    box.getAttribute("data-country") ||
+    ""
+  ).trim();
+  return uniqueSearchParts([typed, company, country]).join(" ");
+}
+
+function openGoogleMapsSearch(query) {
+  const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 function bindAddressSearch() {
-  const boxes = document.querySelectorAll(".addr-search");
-  if (!boxes.length) return;
-  const googleReady = Boolean(window.google && window.google.maps && window.google.maps.places);
-
-  boxes.forEach((box) => {
+  document.querySelectorAll(".addr-search").forEach((box) => {
     const input = box.querySelector(".js-addr-q");
-    const results = box.querySelector(".js-addr-results");
-    const target = box.querySelector(".js-addr-target");
     const googleBtn = box.querySelector(".js-addr-google");
-    const noneText = box.getAttribute("data-empty") || "검색 결과가 없습니다.";
-    const countryInput = box.closest("form")?.querySelector('[name="country_en"]');
-    let timer = null;
-    let seq = 0;
+    const target = box.querySelector(".js-addr-target");
 
-    function hideResults() {
-      if (!results) return;
-      results.hidden = true;
-      results.innerHTML = "";
-    }
-
-    function showItems(items) {
-      if (!results) return;
-      results.innerHTML = "";
-      if (!items.length) {
-        const li = document.createElement("li");
-        li.className = "addr-empty";
-        li.textContent = noneText;
-        results.appendChild(li);
-        results.hidden = false;
-        return;
-      }
-      items.forEach((item) => {
-        const li = document.createElement("li");
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.innerHTML = `<span>${escapeHtml(item.label).replace(/\n/g, "<br>")}</span>`;
-        if (item.detail && item.detail !== item.label) {
-          const small = document.createElement("small");
-          small.textContent = item.detail;
-          btn.appendChild(small);
-        }
-        btn.addEventListener("click", () => {
-          target.value = item.label;
-          input.value = "";
-          hideResults();
-          target.focus();
-        });
-        li.appendChild(btn);
-        results.appendChild(li);
-      });
-      results.hidden = false;
-    }
-
-    async function runSearch(query) {
-      const current = ++seq;
-      try {
-        const country = (countryInput?.value || box.getAttribute("data-country") || "").trim();
-        const url = `/api/address-search?q=${encodeURIComponent(query)}&country=${encodeURIComponent(country)}`;
-        const res = await fetch(url, { headers: { Accept: "application/json" } });
-        const data = await res.json();
-        if (current !== seq) return;
-        showItems((data && data.items) || []);
-      } catch (e) {
-        if (current !== seq) return;
-        showItems([]);
-      }
-    }
-
-    function searchPlaces(query, done) {
-      if (googleReady && window.google.maps.places.AutocompleteService) {
-        const svc = new window.google.maps.places.AutocompleteService();
-        svc.getPlacePredictions({ input: query, types: ["geocode"] }, (preds) => {
-          if (!preds || !preds.length) {
-            done(null);
-            return;
-          }
-          done(
-            preds.map((p) => ({
-              label: p.description,
-              detail: (p.structured_formatting && p.structured_formatting.secondary_text) || "",
-            }))
-          );
-        });
-        return;
-      }
-      done(null);
-    }
-
-    if (googleReady && input) {
-      const ac = new window.google.maps.places.Autocomplete(input, {
-        fields: ["formatted_address", "address_components", "name"],
-        types: ["geocode"],
-      });
-      ac.addListener("place_changed", () => {
-        const place = ac.getPlace();
-        if (place && place.formatted_address) {
-          target.value = place.formatted_address;
-          input.value = "";
-          hideResults();
-          target.focus();
-        }
-      });
-    }
-
-    input?.addEventListener("input", () => {
-      const query = (input.value || "").trim();
-      clearTimeout(timer);
-      if (query.length < 3) {
-        hideResults();
-        return;
-      }
-      timer = setTimeout(() => {
-        searchPlaces(query, (items) => {
-          if (items) showItems(items);
-          else runSearch(query);
-        });
-      }, 350);
-    });
-
-    input?.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter") {
-        ev.preventDefault();
-        clearTimeout(timer);
-        googleBtn?.click();
-      }
-      if (ev.key === "Escape") hideResults();
-    });
-
-    document.addEventListener("click", (ev) => {
-      if (!box.contains(ev.target)) hideResults();
-    });
-
-    googleBtn?.addEventListener("click", () => {
-      const query = (input?.value || "").trim();
-      if (query.length < 3) {
+    function runSearch() {
+      const query = mapsSearchQuery(box);
+      if (!query) {
         input?.focus();
         return;
       }
-      searchPlaces(query, (items) => {
-        if (items) showItems(items);
-        else runSearch(query);
-      });
+      openGoogleMapsSearch(query);
+      target?.focus();
+    }
+
+    googleBtn?.addEventListener("click", runSearch);
+    input?.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        runSearch();
+      }
     });
   });
-}
-
-function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
