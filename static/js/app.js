@@ -23,6 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
   restoreBtn?.addEventListener("click", () => setCollapsed(false));
 
   bindKrwInputs(document);
+  bindEntityPickers();
   document.querySelectorAll("form").forEach((form) => {
     form.addEventListener("submit", () => {
       form.querySelectorAll(".js-krw").forEach((el) => {
@@ -65,6 +66,56 @@ function bindEmailLists() {
         }
       }
     });
+  });
+}
+
+function bindEntityPickers() {
+  document.querySelectorAll("[data-entity-picker]").forEach((box) => {
+    const companyEl = box.querySelector("[data-entity-company]");
+    const regionEl = box.querySelector("[data-entity-region]");
+    const countryEl = box.querySelector("[data-entity-country]");
+    const target = box.querySelector("[data-entity-target]");
+    if (!target) return;
+
+    function matches(opt) {
+      if (!opt.value) return true;
+      const company = (companyEl && companyEl.value) || "";
+      const region = (regionEl && regionEl.value) || "";
+      const country = (countryEl && countryEl.value) || "";
+      if (company && (opt.dataset.company || "") !== company) return false;
+      if (region) {
+        const ko = opt.dataset.region || "";
+        const en = opt.dataset.regionEn || "";
+        if (ko !== region && en !== region) return false;
+      }
+      if (country) {
+        const ko = opt.dataset.country || "";
+        const en = opt.dataset.countryEn || "";
+        if (ko !== country && en !== country) return false;
+      }
+      return true;
+    }
+
+    function refresh() {
+      const kept = target.value;
+      let visible = 0;
+      [...target.options].forEach((opt) => {
+        const ok = matches(opt);
+        opt.hidden = !ok;
+        opt.disabled = !ok;
+        if (ok && opt.value) visible += 1;
+      });
+      if (kept && target.selectedOptions[0] && target.selectedOptions[0].hidden) {
+        target.value = "";
+        target.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      target.dataset.entityVisible = String(visible);
+    }
+
+    [companyEl, regionEl, countryEl].forEach((el) => {
+      el?.addEventListener("change", refresh);
+    });
+    refresh();
   });
 }
 
@@ -142,9 +193,42 @@ function bindKrwInputs(root) {
   });
 }
 
+function pguMoneyFx(amountKrw, rate) {
+  const krw = Number(amountKrw) || 0;
+  const fxRate = Number(rate) || 0;
+  if (!fxRate) return 0;
+  return Math.round((krw / fxRate) * 100) / 100;
+}
+
+function pguFormatFx(amount, currency) {
+  const n = Number(amount);
+  const code = currency || "USD";
+  if (!Number.isFinite(n)) return `${code} 0.00`;
+  return `${code} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function pguRefreshFxCells({ rateEl, currencyEl, emptyText } = {}) {
+  const rate = Number((rateEl && rateEl.value) || 0);
+  const currency = (currencyEl && currencyEl.value) || "USD";
+  const fallback = emptyText || "—";
+  document.querySelectorAll(".js-fx-cell").forEach((el) => {
+    const krw = Number(el.getAttribute("data-fx-krw") || 0);
+    if (!rate) {
+      el.textContent = fallback;
+      el.classList.add("is-empty");
+      return;
+    }
+    el.classList.remove("is-empty");
+    el.textContent = pguFormatFx(pguMoneyFx(krw, rate), currency);
+  });
+}
+
 window.pguParseKrw = pguParseKrw;
 window.pguFormatKrw = pguFormatKrw;
 window.pguBindKrw = bindKrwInputs;
+window.pguMoneyFx = pguMoneyFx;
+window.pguFormatFx = pguFormatFx;
+window.pguRefreshFxCells = pguRefreshFxCells;
 
 function uniqueSearchParts(parts) {
   const seen = new Set();

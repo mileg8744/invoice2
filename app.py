@@ -295,6 +295,10 @@ def create_app():
         val = Decimal(str(amount_krw)) / Decimal(str(rate))
         return val.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
+    @app.context_processor
+    def inject_money():
+        return {"money_fx": money_fx}
+
     def allowed_file(filename: str) -> bool:
         return "." in filename and filename.rsplit(".", 1)[1].lower() in {"csv", "xlsx", "xls"}
 
@@ -458,6 +462,7 @@ def create_app():
 
     EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
     CODE_RE = re.compile(r"([0-9]{2}[A-Za-z]{2}[0-9]{2})")
+    HEADCOUNT_RE = re.compile(r"(\d+)\s*(?:명|people|persons|pax)", re.I)
 
     def parse_person(text):
         raw = str(text or "").strip()
@@ -566,7 +571,7 @@ def create_app():
         apply_invoice_totals(invoice)
 
     def invoice_item_from_training(training, people):
-        qty = billed_qty_for_training(training, max(len(people), 1))
+        qty = billed_qty_for_entity(training, people=people, fallback=max(len(people or []), 1))
         named = [p["name"] for p in people if p.get("name")]
         return InvoiceItem(
             training_id=training.id,
@@ -591,27 +596,48 @@ def create_app():
         status = request.args.get("status", "").strip()
         code = request.args.get("subsidiary", "").strip()
         qtext = request.args.get("q", "").strip()
+        company = request.args.get("company", "").strip()
+        region = request.args.get("region", "").strip()
+        country = request.args.get("country", "").strip()
         if year:
             q = q.filter(Invoice.year == year)
         if half:
             q = q.filter(Invoice.half == half)
         if status:
             q = q.filter(Invoice.status == status)
-        if code:
-            sub = db.query(Subsidiary).filter_by(code=code).first()
-            if sub:
-                q = q.filter(Invoice.subsidiary_id == sub.id)
+        admin_entity = user.role == "admin" and bool(code or company or region or country)
+        need_sub = bool(qtext or admin_entity)
+        if need_sub:
+            q = q.join(Subsidiary, Invoice.subsidiary_id == Subsidiary.id)
+        if admin_entity:
+            if code:
+                q = q.filter(Subsidiary.code == code)
+            if company:
+                q = q.filter(Subsidiary.company == company)
+            if region:
+                q = q.filter(or_(Subsidiary.region == region, Subsidiary.region_en == region))
+            if country:
+                q = q.filter(or_(Subsidiary.country == country, Subsidiary.country_en == country))
         if qtext:
             like = f"%{qtext}%"
-            q = q.join(Subsidiary).filter(
-                or_(
-                    Invoice.invoice_no.ilike(like),
-                    Invoice.education_name.ilike(like),
-                    Subsidiary.code.ilike(like),
-                    Subsidiary.name_en.ilike(like),
-                    Subsidiary.name_ko.ilike(like),
+            clauses = [
+                Invoice.invoice_no.ilike(like),
+                Invoice.education_name.ilike(like),
+            ]
+            if need_sub:
+                clauses.extend(
+                    [
+                        Subsidiary.code.ilike(like),
+                        Subsidiary.name_en.ilike(like),
+                        Subsidiary.name_ko.ilike(like),
+                        Subsidiary.company.ilike(like),
+                        Subsidiary.country.ilike(like),
+                        Subsidiary.country_en.ilike(like),
+                        Subsidiary.region.ilike(like),
+                        Subsidiary.region_en.ilike(like),
+                    ]
                 )
-            )
+            q = q.filter(or_(*clauses))
         return q.order_by(Invoice.created_at.desc())
 
     def dashboard_stats(db, user, year, half):
@@ -1330,21 +1356,71 @@ def create_app():
         grouped, unknown = parse_training_learners(getattr(training, "learners", "") or "")
         return sum(len(people) for people in grouped.values()) + len(unknown)
 
-    def billed_qty_for_training(training, fallback=1):
-        n = int(getattr(training, "learner_count", 0) or 0) if training else 0
+    def headcount_from_text(text):
+        blob = str(text or "").strip()
+        if not blob:
+            return 0
+        found = HEADCOUNT_RE.findall(blob)
+        if found:
+            return max(int(found[-1]), 1)
+        return 1
+
+    def headcount_from_people(people):
+        extracted = []
+        blobs = []
+        for person in people or []:
+            blob = " ".join(str(person.get(key) or "") for key in ("name", "email")).strip()
+            blobs.append(blob)
+            found = HEADCOUNT_RE.findall(blob)
+            extracted.append(int(found[-1]) if found else None)
+        if not extracted:
+            return 0
+        if all(n is not None for n in extracted):
+            uniq = set(extracted)
+            if len(uniq) == 1:
+                n = extracted[0]
+                if n == 1:
+                    return len(extracted)
+                if len(set(blobs)) == 1:
+                    return n
+                return sum(extracted)
+            return sum(extracted)
+        return len(extracted)
+
+    def entity_headcount_map(training):
+        grouped, _ = parse_training_learners(getattr(training, "learners", "") or "")
+        return {code: headcount_from_people(people) for code, people in grouped.items()}
+
+    def billed_qty_for_entity(training, entity_code="", people=None, fallback=1):
+        code = str(entity_code or "").upper()
+        if people is None:
+            people = learners_for_entity(training, code) if training and code else []
+        n = headcount_from_people(people)
         if n > 0:
             return n
-        return max(int(fallback or 1), 1)
+        if training and code:
+            grouped, unknown = parse_training_learners(getattr(training, "learners", "") or "")
+            if set(grouped.keys()) == {code} and not unknown:
+                total = int(getattr(training, "learner_count", 0) or 0)
+                if total > 0:
+                    return total
+        try:
+            fb = int(fallback or 0)
+        except (TypeError, ValueError):
+            fb = 0
+        return max(fb, 1)
 
     def apply_training_headcounts(db, invoice):
         changed = False
+        code = entity_code_of(invoice)
         for item in invoice.items or []:
             if not item.training_id:
                 continue
             training = db.get(Training, item.training_id)
             if not training:
                 continue
-            qty = billed_qty_for_training(training, item.qty)
+            people = load_roster(item) or learners_for_entity(training, code)
+            qty = billed_qty_for_entity(training, code, people, fallback=item.qty)
             unit = int(item.unit_price_krw or training.unit_price_krw or 0)
             amount = qty * unit
             if item.qty != qty or item.amount_krw != amount:
@@ -1751,18 +1827,27 @@ def create_app():
         rows = q.all()
         years = sorted({i.year for i in db.query(Invoice.year).all()} | {date.today().year})
         subs = db.query(Subsidiary).order_by(Subsidiary.code).all() if user.role == "admin" else []
+        extras = training_form_extras(db) if user.role == "admin" else {}
+        entity_opts = subsidiary_filter_options(db) if user.role == "admin" else {}
         return render_template(
             "invoices/list.html",
             rows=rows,
             years=years,
             subs=subs,
+            regions=REGIONS,
             filters={
                 "year": request.args.get("year", ""),
                 "half": request.args.get("half", ""),
                 "status": request.args.get("status", ""),
                 "subsidiary": request.args.get("subsidiary", ""),
                 "q": request.args.get("q", ""),
+                "company": entity_opts.get("company", ""),
+                "region": entity_opts.get("region", ""),
+                "country": entity_opts.get("country", ""),
+                "companies": entity_opts.get("companies", []),
+                "countries": entity_opts.get("countries", []),
             },
+            **extras,
         )
 
     @app.route("/invoices/export")
@@ -1877,7 +1962,7 @@ def create_app():
             if not people and training:
                 people = learners_for_entity(training, sub.code)
             if training:
-                qty = billed_qty_for_training(training, qty)
+                qty = billed_qty_for_entity(training, sub.code, people, fallback=qty)
             names = [p["name"] for p in people if p.get("name")]
             ps = _as_date(starts[i] if i < len(starts) and starts[i] else date.today())
             pe = _as_date(ends[i] if i < len(ends) and ends[i] else ps)
@@ -2001,6 +2086,7 @@ def create_app():
         rows = []
         for tr in trains:
             by_code = learners_by_code_map(tr)
+            counts_by_code = entity_headcount_map(tr)
             rows.append(
                 {
                     "id": tr.id,
@@ -2010,8 +2096,9 @@ def create_app():
                     "instructor": tr.instructor,
                     "period_start": tr.start_date.strftime("%Y-%m-%d"),
                     "period_end": tr.end_date.strftime("%Y-%m-%d"),
-                    "qty": max(int(getattr(tr, "learner_count", 0) or 0), 1),
+                    "qty": 1,
                     "learner_count": int(getattr(tr, "learner_count", 0) or 0),
+                    "counts_by_code": counts_by_code,
                     "unit_price_krw": tr.unit_price_krw,
                     "learners": "",
                     "learners_by_code": by_code,
@@ -2053,6 +2140,8 @@ def create_app():
                 flash(t("required"), "danger")
         subs = db.query(Subsidiary).filter_by(status="active").order_by(Subsidiary.code).all()
         trains = db.query(Training).order_by(Training.start_date.desc()).all()
+        extras = training_form_extras(db)
+        entity_opts = subsidiary_filter_options(db)
         return render_template(
             "invoices/form.html",
             row=None,
@@ -2060,7 +2149,12 @@ def create_app():
             trains=trains,
             catalog=trainings_payload(trains),
             program_rows=[],
-            default_rate_date=date.today().strftime("%Y-%m-%d"),
+            default_currency=extras["fx_currency"],
+            default_rate=extras["fx_rate"],
+            default_rate_date=extras["fx_rate_date"],
+            regions=REGIONS,
+            entity_companies=entity_opts["companies"],
+            entity_countries=entity_opts["countries"],
         )
 
     @app.route("/invoices/<int:iid>/edit", methods=["GET", "POST"])
@@ -2087,6 +2181,7 @@ def create_app():
         trains = db.query(Training).order_by(Training.start_date.desc()).all()
         if attach_training_learners(db, row):
             db.commit()
+        entity_opts = subsidiary_filter_options(db)
         return render_template(
             "invoices/form.html",
             row=row,
@@ -2095,6 +2190,9 @@ def create_app():
             catalog=trainings_payload(trains),
             program_rows=program_rows_from_invoice(row),
             default_rate_date=date.today().strftime("%Y-%m-%d"),
+            regions=REGIONS,
+            entity_companies=entity_opts["companies"],
+            entity_countries=entity_opts["countries"],
         )
 
     @app.route("/invoices/<int:iid>")

@@ -10,12 +10,13 @@
   <div class="upload-inline wrap">
     <strong>{{ t('bulk_from_trainings') }}</strong>
     <span class="muted">{{ t('bulk_from_trainings_help') }}</span>
-    <select class="form-select" name="currency" style="max-width:110px">
+    <select class="form-select" name="currency" id="fxCurrency" style="max-width:110px">
       <option value="USD" {% if fx_currency == 'USD' %}selected{% endif %}>USD</option>
       <option value="EUR" {% if fx_currency == 'EUR' %}selected{% endif %}>EUR</option>
     </select>
-    <input class="form-control" style="max-width:140px" type="number" step="0.01" min="0.01" name="exchange_rate" value="{{ fx_rate }}" placeholder="{{ t('rate') }}" required>
+    <input class="form-control" style="max-width:140px" type="number" step="0.01" min="0.01" name="exchange_rate" id="fxRate" value="{{ fx_rate }}" placeholder="{{ t('rate') }}" required>
     <input class="form-control" style="max-width:160px" type="date" name="rate_date" value="{{ fx_rate_date }}" required>
+    <span class="fx-live-chip" id="fxLiveSummary">{{ t('fx_need_rate') }}</span>
     <button class="btn btn-navy" type="submit" {% if not rows %}disabled{% endif %}>{{ t('bulk_from_trainings') }}</button>
   </div>
 </div>
@@ -32,27 +33,33 @@
           <th>{{ t('instructor') }}</th>
           <th class="text-end">{{ t('learner_count') }}</th>
           <th class="text-end">{{ t('unit_krw') }}</th>
+          <th class="text-end">{{ t('krw_total') }}</th>
+          <th class="text-end">{{ t('amount_usd') }}</th>
           <th>{{ t('actions') }}</th>
         </tr>
       </thead>
       <tbody>
         {% for row in rows %}
+        {% set qty = learner_counts.get(row.id, 0) %}
+        {% set krw_total = qty * (row.unit_price_krw or 0) %}
         <tr>
           <td>
-            <input class="form-check-input" type="checkbox" name="training_ids" value="{{ row.id }}" checked>
+            <input class="form-check-input js-training-check" type="checkbox" name="training_ids" value="{{ row.id }}" checked>
           </td>
           <td>{{ row.title }}{% if row.title_en and row.title_en != row.title %}<div class="tiny">{{ row.title_en }}</div>{% endif %}</td>
           <td>{{ row.start_date | ymd }} ~ {{ row.end_date | ymd }}</td>
           <td>{{ row.instructor }}</td>
-          <td class="text-end">{{ learner_counts.get(row.id, 0) }}</td>
+          <td class="text-end">{{ qty }}</td>
           <td class="text-end">{{ row.unit_price_krw | krw }}</td>
+          <td class="text-end">{{ krw_total | krw }}</td>
+          <td class="text-end fx-amount js-fx-cell" data-fx-krw="{{ krw_total }}">{{ t('fx_need_rate') }}</td>
           <td class="nowrap">
             <a class="btn btn-sm btn-outline-navy" href="{{ url_for('training_edit', tid=row.id) }}">{{ t('edit') }}</a>
             <button class="btn btn-sm btn-ghost" type="submit" form="del-{{ row.id }}" onclick="return confirm('{{ t('confirm_delete') }}');">{{ t('delete') }}</button>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="7" class="empty">{{ t('no_data') }}</td></tr>
+        <tr><td colspan="9" class="empty">{{ t('no_data') }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -62,18 +69,56 @@
 {% for row in rows %}
 <form id="del-{{ row.id }}" method="post" action="{{ url_for('training_delete', tid=row.id) }}"></form>
 {% endfor %}
+{% endblock %}
+{% block scripts %}
 <script>
   const chkAll = document.getElementById("chkAll");
   const boxes = () => Array.from(document.querySelectorAll('input[name="training_ids"]'));
   if (chkAll) {
     chkAll.addEventListener("change", () => {
       boxes().forEach((el) => { el.checked = chkAll.checked; });
+      refreshTrainingFx();
     });
     boxes().forEach((el) => {
       el.addEventListener("change", () => {
         chkAll.checked = boxes().length > 0 && boxes().every((b) => b.checked);
+        refreshTrainingFx();
       });
     });
   }
+
+  const fxRateEl = document.getElementById("fxRate");
+  const fxCurEl = document.getElementById("fxCurrency");
+  const fxSummary = document.getElementById("fxLiveSummary");
+  const emptyFx = {{ t('fx_need_rate') | tojson }};
+
+  function refreshTrainingFx() {
+    window.pguRefreshFxCells({
+      rateEl: fxRateEl,
+      currencyEl: fxCurEl,
+      emptyText: emptyFx,
+    });
+    if (!fxSummary) return;
+    const rate = Number((fxRateEl && fxRateEl.value) || 0);
+    const currency = (fxCurEl && fxCurEl.value) || "USD";
+    let krw = 0;
+    document.querySelectorAll(".js-training-check:checked").forEach((box) => {
+      const cell = box.closest("tr")?.querySelector(".js-fx-cell");
+      krw += Number(cell?.getAttribute("data-fx-krw") || 0);
+    });
+    if (!rate) {
+      fxSummary.textContent = emptyFx;
+      fxSummary.classList.add("is-empty");
+      return;
+    }
+    fxSummary.classList.remove("is-empty");
+    fxSummary.textContent = {{ t('amount_usd') | tojson }} + " " + window.pguFormatFx(window.pguMoneyFx(krw, rate), currency);
+  }
+
+  ["input", "change"].forEach((ev) => {
+    fxRateEl?.addEventListener(ev, refreshTrainingFx);
+    fxCurEl?.addEventListener(ev, refreshTrainingFx);
+  });
+  refreshTrainingFx();
 </script>
 {% endblock %}

@@ -30,7 +30,7 @@
       </div>
       <div class="col-md-6">
         <label class="form-label">{{ t('training_learner_count') }}</label>
-        <input class="form-control" type="number" min="0" step="1" name="learner_count" value="{{ learner_count_value }}" required>
+        <input class="form-control" type="number" min="0" step="1" name="learner_count" id="learner_count" value="{{ learner_count_value }}" required>
         <p class="muted mt-2 mb-0">{{ t('training_learner_count_hint') }}</p>
       </div>
     </div>
@@ -39,10 +39,70 @@
       <textarea class="form-control" name="learners" rows="8" placeholder="{{ t('training_learners_hint') }}">{{ row.learners if row else '' }}</textarea>
       <p class="muted mt-2 mb-0">{{ t('training_learners_hint') }}</p>
     </div>
+    <div class="calc-box mt-4" id="trainingFxBox">
+      <div class="muted">{{ t('calc_preview') }} · {{ t('fx_calc') }}</div>
+      <div class="row g-3 mt-1">
+        <div class="col-md-3">
+          <label class="form-label">{{ t('currency') }}</label>
+          <select class="form-select" id="preview_currency">
+            <option value="USD" {% if fx_currency == 'USD' %}selected{% endif %}>USD</option>
+            <option value="EUR" {% if fx_currency == 'EUR' %}selected{% endif %}>EUR</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ t('rate') }}</label>
+          <input class="form-control" type="number" step="0.01" min="0.01" id="preview_exchange_rate" value="{{ fx_rate }}" placeholder="{{ t('rate') }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ t('rate_date') }}</label>
+          <input class="form-control" type="date" value="{{ fx_rate_date }}" disabled>
+        </div>
+      </div>
+      <p class="muted mt-3 mb-0">{{ t('fx_applied_help') }}</p>
+      <div class="calc-nums">
+        <div>{{ t('krw_total') }} <b id="previewKrw">0</b></div>
+        <div>{{ t('unit_usd') }} <b id="previewUnitFx">0.00</b></div>
+        <div>{{ t('amount_usd') }} <b id="previewFx">0.00</b></div>
+      </div>
+    </div>
     <div class="mt-4 d-flex gap-2">
       <button class="btn btn-navy" type="submit">{{ t('save') }}</button>
       <a class="btn btn-ghost" href="{{ url_for('trainings') }}">{{ t('cancel') }}</a>
     </div>
   </form>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+  const unitEl = document.querySelector('[name="unit_price_krw"]');
+  const qtyEl = document.getElementById("learner_count");
+  const rateEl = document.getElementById("preview_exchange_rate");
+  const curEl = document.getElementById("preview_currency");
+  const emptyFx = {{ t('fx_need_rate') | tojson }};
+
+  function refreshTrainingFormFx() {
+    const qty = Number(qtyEl?.value || 0);
+    const unit = window.pguParseKrw ? window.pguParseKrw(unitEl?.value) : Number(String(unitEl?.value || "").replace(/,/g, "")) || 0;
+    const krw = qty * unit;
+    const rate = Number(rateEl?.value || 0);
+    const currency = curEl?.value || "USD";
+    const fmtFx = (n) => window.pguFormatFx ? window.pguFormatFx(n, currency) : (currency + " " + Number(n || 0).toFixed(2));
+    document.getElementById("previewKrw").textContent = krw.toLocaleString();
+    if (!rate) {
+      document.getElementById("previewUnitFx").textContent = emptyFx;
+      document.getElementById("previewFx").textContent = emptyFx;
+      return;
+    }
+    const unitFx = window.pguMoneyFx ? window.pguMoneyFx(unit, rate) : (unit / rate);
+    const totalFx = window.pguMoneyFx ? window.pguMoneyFx(krw, rate) : (krw / rate);
+    document.getElementById("previewUnitFx").textContent = fmtFx(unitFx);
+    document.getElementById("previewFx").textContent = fmtFx(totalFx);
+  }
+
+  [unitEl, qtyEl, rateEl, curEl].forEach((el) => {
+    el?.addEventListener("input", refreshTrainingFormFx);
+    el?.addEventListener("change", refreshTrainingFormFx);
+  });
+  refreshTrainingFormFx();
+</script>
 {% endblock %}

@@ -20,18 +20,18 @@
     <strong>{{ t('bulk_invoice') }}</strong>
     <span class="muted">{{ t('group_note') }}</span>
     <select class="form-select" name="currency" style="max-width:110px">
-      <option>USD</option>
-      <option>EUR</option>
+      <option value="USD" {% if fx_currency != 'EUR' %}selected{% endif %}>USD</option>
+      <option value="EUR" {% if fx_currency == 'EUR' %}selected{% endif %}>EUR</option>
     </select>
-    <input class="form-control" style="max-width:140px" type="number" step="0.01" min="0.01" name="exchange_rate" placeholder="{{ t('rate') }}" required>
-    <input class="form-control" style="max-width:160px" type="date" name="rate_date" value="{{ today }}" required>
+    <input class="form-control" style="max-width:140px" type="number" step="0.01" min="0.01" name="exchange_rate" value="{{ fx_rate or '' }}" placeholder="{{ t('rate') }}" required>
+    <input class="form-control" style="max-width:160px" type="date" name="rate_date" value="{{ fx_rate_date or today }}" required>
     <input class="form-control" type="file" name="file" accept=".xlsx,.xls,.csv" required>
     <button class="btn btn-navy" type="submit">{{ t('upload') }}</button>
   </form>
 </div>
 {% endif %}
 
-<form class="filter-bar" method="get">
+<form class="filter-bar" method="get" data-entity-picker>
   <select class="form-select" name="year">
     <option value="">{{ t('year') }}</option>
     {% for y in years %}
@@ -50,10 +50,34 @@
     {% endfor %}
   </select>
   {% if current_user.role == 'admin' %}
-  <select class="form-select" name="subsidiary">
+  <select class="form-select" name="company" data-entity-company>
+    <option value="">{{ t('company') }}</option>
+    {% for c in filters.companies %}
+    <option value="{{ c }}" {% if filters.company == c %}selected{% endif %}>{{ c }}</option>
+    {% endfor %}
+  </select>
+  <select class="form-select" name="region" data-entity-region>
+    <option value="">{{ t('region') }}</option>
+    {% for ko, en in regions %}
+    <option value="{{ ko }}" {% if filters.region == ko %}selected{% endif %}>{% if lang == 'en' %}{{ en }}{% else %}{{ ko }}{% endif %}</option>
+    {% endfor %}
+  </select>
+  <select class="form-select" name="country" data-entity-country>
+    <option value="">{{ t('country') }}</option>
+    {% for c in filters.countries %}
+    <option value="{{ c }}" {% if filters.country == c %}selected{% endif %}>{{ c }}</option>
+    {% endfor %}
+  </select>
+  <select class="form-select" name="subsidiary" data-entity-target>
     <option value="">{{ t('subsidiary') }}</option>
     {% for s in subs %}
-    <option value="{{ s.code }}" {% if filters.subsidiary == s.code %}selected{% endif %}>{{ s.code }} · {{ s.name_en }}</option>
+    <option value="{{ s.code }}"
+            data-company="{{ s.company or '' }}"
+            data-region="{{ s.region or '' }}"
+            data-region-en="{{ s.region_en or '' }}"
+            data-country="{{ s.country or '' }}"
+            data-country-en="{{ s.country_en or '' }}"
+            {% if filters.subsidiary == s.code %}selected{% endif %}>{{ s.code }} · {{ s.name_en }}</option>
     {% endfor %}
   </select>
   {% endif %}
@@ -99,8 +123,8 @@
           <th>{{ t('education') }}</th>
           <th>{{ t('period') }}</th>
           <th class="text-end">{{ t('qty') }}</th>
-          <th class="text-end">KRW</th>
-          <th class="text-end">FX</th>
+          <th class="text-end">{{ t('amount_krw') }}</th>
+          <th class="text-end">{{ t('amount_usd') }}</th>
           <th>{{ t('status') }}</th>
           <th></th>
         </tr>
@@ -119,7 +143,10 @@
           <td>{{ row.period_start | ymd }} ~ {{ row.period_end | ymd }}</td>
           <td class="text-end">{{ row.qty }}</td>
           <td class="text-end">{{ row.amount_krw | krw }}</td>
-          <td class="text-end">{{ row.currency }} {{ row.amount_fx | fx }}</td>
+          <td class="text-end">
+            <div class="fx-amount">{{ row.currency }} {{ row.amount_fx | fx }}</div>
+            <div class="tiny">{{ t('rate') }} {{ row.exchange_rate | rate }}</div>
+          </td>
           <td><span class="badge-status s-{{ row.status }}">{{ status_label(row.status) }}</span></td>
           <td class="text-nowrap">
             <a class="btn btn-sm btn-outline-navy" href="{{ url_for('invoice_detail', iid=row.id) }}">{{ t('view') }}</a>

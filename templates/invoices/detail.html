@@ -75,6 +75,7 @@
         <th class="text-end">{{ t('qty') }}</th>
         <th class="text-end">{{ t('unit_krw') }}</th>
         <th class="text-end">{{ t('amount_krw') }}</th>
+        <th class="text-end">{{ t('amount_usd') }}</th>
       </tr>
     </thead>
     <tbody>
@@ -89,6 +90,7 @@
         <td class="text-end">{{ it.qty }}</td>
         <td class="text-end">{{ it.unit_price_krw | krw }}</td>
         <td class="text-end">{{ it.amount_krw | krw }}</td>
+        <td class="text-end fx-amount">{{ row.currency }} {{ money_fx(it.amount_krw, row.exchange_rate) | fx }}</td>
       </tr>
       {% endfor %}
     </tbody>

@@ -5,12 +5,41 @@
   <p class="muted">{{ t('seq_rule') }} · {{ t('half_auto') }} · {{ t('vat_note') }}</p>
   <form method="post" id="invoiceForm">
     <div class="row g-3">
-      <div class="col-md-6">
+      <div class="col-12" data-entity-picker>
         <label class="form-label">{{ t('select_subsidiary') }}</label>
-        <select class="form-select" name="subsidiary_id" required>
+        <div class="filter-bar mb-2">
+          <select class="form-select" data-entity-company>
+            <option value="">{{ t('company') }}</option>
+            {% for c in entity_companies %}
+            <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+          </select>
+          <select class="form-select" data-entity-region>
+            <option value="">{{ t('region') }}</option>
+            {% for ko, en in regions %}
+            <option value="{{ ko }}">{% if lang == 'en' %}{{ en }}{% else %}{{ ko }}{% endif %}</option>
+            {% endfor %}
+          </select>
+          <select class="form-select" data-entity-country>
+            <option value="">{{ t('country') }}</option>
+            {% for c in entity_countries %}
+            <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <select class="form-select" name="subsidiary_id" data-entity-target required>
           <option value="">{{ t('select') }}</option>
           {% for s in subs %}
-          <option value="{{ s.id }}" data-code="{{ s.code }}" data-name="{{ s.name_en }}" data-address="{{ s.address_en }}" {% if row and row.subsidiary_id == s.id %}selected{% endif %}>{{ s.code }} · {{ s.name_en }}</option>
+          <option value="{{ s.id }}"
+                  data-code="{{ s.code }}"
+                  data-name="{{ s.name_en }}"
+                  data-address="{{ s.address_en }}"
+                  data-company="{{ s.company or '' }}"
+                  data-region="{{ s.region or '' }}"
+                  data-region-en="{{ s.region_en or '' }}"
+                  data-country="{{ s.country or '' }}"
+                  data-country-en="{{ s.country_en or '' }}"
+                  {% if row and row.subsidiary_id == s.id %}selected{% endif %}>{{ s.code }} · {{ s.name_en }}</option>
           {% endfor %}
         </select>
         <div class="tiny muted mt-2" id="entityPreview"></div>
@@ -22,13 +51,13 @@
       <div class="col-md-1">
         <label class="form-label">{{ t('currency') }}</label>
         <select class="form-select" name="currency" id="currency">
-          <option value="USD" {% if not row or row.currency == 'USD' %}selected{% endif %}>USD</option>
-          <option value="EUR" {% if row and row.currency == 'EUR' %}selected{% endif %}>EUR</option>
+          <option value="USD" {% if (row and row.currency == 'USD') or (not row and default_currency != 'EUR') %}selected{% endif %}>USD</option>
+          <option value="EUR" {% if (row and row.currency == 'EUR') or (not row and default_currency == 'EUR') %}selected{% endif %}>EUR</option>
         </select>
       </div>
       <div class="col-md-1">
         <label class="form-label">{{ t('rate') }}</label>
-        <input class="form-control" type="number" step="0.01" min="0.01" name="exchange_rate" id="exchange_rate" value="{{ '%.2f'|format(row.exchange_rate) if row else '' }}" required>
+        <input class="form-control" type="number" step="0.01" min="0.01" name="exchange_rate" id="exchange_rate" value="{{ '%.2f'|format(row.exchange_rate) if row else (default_rate or '') }}" required>
       </div>
       <div class="col-md-2">
         <label class="form-label">{{ t('rate_date') }}</label>
@@ -58,9 +87,10 @@
 
     <div class="calc-box mt-4" id="calcBox">
       <div class="muted">{{ t('calc_preview') }} · {{ t('fx_calc') }}</div>
+      <p class="muted mb-0 mt-1">{{ t('fx_applied_help') }}</p>
       <div class="calc-nums">
-        <div>KRW <b id="previewKrw">0</b></div>
-        <div>FX <b id="previewFx">0.00</b></div>
+        <div>{{ t('amount_krw') }} <b id="previewKrw">0</b></div>
+        <div>{{ t('amount_usd') }} <b id="previewFx">0.00</b></div>
         <div>{{ t('vat') }} <b>{{ t('exempt') }}</b></div>
       </div>
     </div>
@@ -105,10 +135,40 @@
     return (data && data.learners) || '';
   }
 
+  function headcountFromText(text) {
+    const lines = String(text || '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    if (!lines.length) return 0;
+    const nums = lines.map((t) => {
+      const m = t.match(/(\d+)\s*(?:명|people|persons|pax)/i);
+      return m ? Number(m[1]) : null;
+    });
+    if (nums.every((n) => n != null)) {
+      const uniq = [...new Set(nums)];
+      if (uniq.length === 1) {
+        const n = uniq[0];
+        if (n === 1) return lines.length;
+        const blobs = [...new Set(lines)];
+        if (blobs.length === 1) return n;
+        return nums.reduce((a, b) => a + b, 0);
+      }
+      return nums.reduce((a, b) => a + b, 0);
+    }
+    return lines.length;
+  }
+
+  function entityHeadcount(data, learnersText) {
+    const fromText = headcountFromText(learnersText != null ? learnersText : learnersTextFor(data));
+    if (fromText > 0) return fromText;
+    const code = selectedEntityCode();
+    const byCode = (data && data.counts_by_code) || {};
+    if (code && Number(byCode[code]) > 0) return Number(byCode[code]);
+    return 0;
+  }
+
   function withCatalogLearners(data) {
     if (!data) return data || {};
     const learners = learnersTextFor(data);
-    const headcount = Number(data.learner_count || data.qty || 1) || 1;
+    const headcount = entityHeadcount(data, learners) || 1;
     return Object.assign({}, data, {
       learners,
       qty: headcount,
@@ -139,11 +199,11 @@
           <div class="col-md-3 text-end">
             <button class="btn btn-sm btn-ghost btn-remove" type="button">{{ t('remove_line') }}</button>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-2">
             <label class="form-label">{{ t('period') }} Start</label>
             <input class="form-control" type="date" name="item_period_start" value="${start}" required>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-2">
             <label class="form-label">{{ t('period') }} End</label>
             <input class="form-control" type="date" name="item_period_end" value="${end}" required>
           </div>
@@ -156,8 +216,12 @@
             <input class="form-control item-unit js-krw" type="text" inputmode="numeric" name="item_unit_price_krw" value="${Number(unit || 0).toLocaleString('en-US')}" required>
           </div>
           <div class="col-md-2">
-            <label class="form-label">KRW</label>
+            <label class="form-label">{{ t('amount_krw') }}</label>
             <div class="form-control-plaintext fw-bold item-line-krw">0</div>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label item-line-fx-label">USD</label>
+            <div class="form-control-plaintext fw-bold fx-amount item-line-fx">0.00</div>
           </div>
           <div class="col-12">
             <label class="form-label">{{ t('learners') }}</label>
@@ -172,7 +236,12 @@
   }
 
   function trainingHasLearners(tid) {
-    return Boolean(catalogById[String(tid || '')] && selectedEntityCode());
+    const cat = catalogById[String(tid || '')];
+    const code = selectedEntityCode();
+    if (!cat || !code) return false;
+    const byCode = cat.learners_by_code || {};
+    if (Object.keys(byCode).length === 0) return true;
+    return Boolean(byCode[code]);
   }
 
   function catalogLabel(tr) {
@@ -225,7 +294,7 @@
       const text = learnersTextFor(cat);
       ta.value = text;
       const qtyEl = el.querySelector('.item-qty');
-      const headcount = Number(cat.learner_count || cat.qty || 0);
+      const headcount = entityHeadcount(cat, text);
       if (headcount > 0 && (force || !(qtyEl.value && Number(qtyEl.value) > 0))) {
         qtyEl.value = headcount;
       }
@@ -283,13 +352,19 @@
   });
 
   function recalc() {
+    const rate = Number(document.getElementById('exchange_rate').value || 0);
+    const currency = document.getElementById('currency').value || 'USD';
+    const emptyFx = {{ t('fx_need_rate') | tojson }};
+    const moneyFx = (amount) => window.pguMoneyFx ? window.pguMoneyFx(amount, rate) : (rate ? amount / rate : 0);
+    const fmtFx = (amount) => window.pguFormatFx ? window.pguFormatFx(amount, currency) : (currency + ' ' + Number(amount || 0).toFixed(2));
     let krw = 0;
     document.querySelectorAll('.program-line').forEach(el => {
       const tid = (el.querySelector('[name="item_training_id"]') || {}).value;
       const cat = tid ? catalogById[String(tid)] : null;
       const qtyInput = el.querySelector('.item-qty');
       let qty = Number(qtyInput.value || 1);
-      const headcount = Number((cat && (cat.learner_count || cat.qty)) || 0);
+      const learnersVal = (el.querySelector('.item-learners') || {}).value || '';
+      const headcount = cat ? entityHeadcount(cat, learnersVal) : headcountFromText(learnersVal);
       if (headcount > 0) {
         qty = headcount;
         qtyInput.value = qty;
@@ -297,12 +372,14 @@
       const unit = parseKrw(el.querySelector('.item-unit').value);
       const line = qty * unit;
       el.querySelector('.item-line-krw').textContent = line.toLocaleString();
+      const fxEl = el.querySelector('.item-line-fx');
+      const fxLabel = el.querySelector('.item-line-fx-label');
+      if (fxLabel) fxLabel.textContent = currency;
+      if (fxEl) fxEl.textContent = rate ? fmtFx(moneyFx(line)) : emptyFx;
       krw += line;
     });
-    const rate = Number(document.getElementById('exchange_rate').value || 0);
-    const fx = rate ? (krw / rate) : 0;
     document.getElementById('previewKrw').textContent = krw.toLocaleString();
-    document.getElementById('previewFx').textContent = document.getElementById('currency').value + ' ' + fx.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('previewFx').textContent = rate ? fmtFx(moneyFx(krw)) : emptyFx;
   }
 
   refreshCatalog();
