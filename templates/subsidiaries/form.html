@@ -19,6 +19,15 @@
         </select>
       </div>
       <div class="col-md-4">
+        <label class="form-label">{{ t('entity_type') }}</label>
+        <select class="form-select" name="entity_type" required>
+          <option value="">{{ t('select') }}</option>
+          {% for ko, en in entity_types %}
+          <option value="{{ ko }}" {% if row and row.entity_type == ko %}selected{% endif %}>{% if lang == 'en' %}{{ en }}{% else %}{{ ko }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
         <label class="form-label">{{ t('country') }}</label>
         <input class="form-control" name="country" value="{{ row.country if row else '' }}" required>
       </div>

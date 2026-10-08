@@ -6,3 +6,7 @@ __pycache__/
 *.pyc
 .env
 *.db
+gmail_oauth.json
+client_secret*.json
+credentials.json
+token.json

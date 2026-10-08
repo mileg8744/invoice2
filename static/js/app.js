@@ -32,7 +32,36 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   loadGoogleMaps(window.PGU_GOOGLE_MAPS_KEY || "", bindAddressSearch);
+  bindBulkRemind();
 });
+
+function bindBulkRemind() {
+  const form = document.getElementById("bulk-remind-form");
+  if (!form) return;
+  const master = document.getElementById("select-issued");
+  const boxes = () => [...document.querySelectorAll(".js-issued-check:not(:disabled)")];
+  master?.addEventListener("change", () => {
+    boxes().forEach((el) => {
+      el.checked = master.checked;
+    });
+  });
+  document.addEventListener("change", (ev) => {
+    if (!master || !ev.target.classList.contains("js-issued-check")) return;
+    const all = boxes();
+    master.checked = all.length > 0 && all.every((el) => el.checked);
+  });
+  form.addEventListener("submit", (ev) => {
+    const selected = boxes().filter((el) => el.checked).length;
+    if (!selected) {
+      ev.preventDefault();
+      window.alert(form.dataset.needOne || "");
+      return;
+    }
+    if (!window.confirm(form.dataset.confirm || "")) {
+      ev.preventDefault();
+    }
+  });
+}
 
 function pguParseKrw(value) {
   return Number(String(value || "").replace(/[^\d-]/g, "")) || 0;

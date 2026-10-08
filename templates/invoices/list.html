@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block page_title %}{% if current_user.role == 'admin' %}{{ t('invoices') }}{% else %}{{ t('inbox') }}{% endif %}{% endblock %}
 {% block content %}
+{% if current_user.role == 'admin' and not mail_live %}
+<div class="alert alert-warning">{{ t('mail_live_off') }} <a href="{{ url_for('hq_settings') }}">{{ t('hq_settings') }}</a></div>
+{% endif %}
 {% if current_user.role == 'admin' %}
 <div class="toolbar">
   <div></div>
@@ -63,11 +66,23 @@
 <p class="muted mb-3">{{ t('hq_bulk_help') }} · {{ t('hq_copy_to') }}: <b>{{ hq_copy_email }}</b></p>
 {% endif %}
 
+{% if current_user.role == 'admin' %}
+<form method="post" action="{{ url_for('invoices_bulk_remind', **request.args) }}" id="bulk-remind-form" data-need-one="{{ t('bulk_remind_need_one') }}" data-confirm="{{ t('confirm_bulk_remind') }}"></form>
+<div class="toolbar">
+  <p class="muted mb-0">{{ t('bulk_remind_help') }}</p>
+  <button class="btn btn-navy" type="submit" form="bulk-remind-form"><i class="bi bi-envelope-check"></i> {{ t('bulk_remind_send') }}</button>
+</div>
+{% endif %}
 <section class="card-panel">
   <div class="table-responsive">
     <table class="table table-clean">
       <thead>
         <tr>
+          {% if current_user.role == 'admin' %}
+          <th class="col-check">
+            <input class="form-check-input" type="checkbox" id="select-issued" title="{{ t('select_unacked') }}" aria-label="{{ t('select_unacked') }}">
+          </th>
+          {% endif %}
           <th>{{ t('invoice_no') }}</th>
           <th>{{ t('subsidiary') }}</th>
           <th>{{ t('education') }}</th>
@@ -82,6 +97,11 @@
       <tbody>
         {% for row in rows %}
         <tr>
+          {% if current_user.role == 'admin' %}
+          <td class="col-check">
+            <input class="form-check-input js-issued-check" type="checkbox" name="invoice_ids" value="{{ row.id }}" form="bulk-remind-form" {% if row.status != 'issued' %}disabled{% endif %} aria-label="{{ row.invoice_no }}">
+          </td>
+          {% endif %}
           <td class="mono"><a href="{{ url_for('invoice_detail', iid=row.id) }}">{{ row.invoice_no }}</a></td>
           <td>{{ row.subsidiary.code }}<div class="tiny">{{ row.subsidiary.name_en }}</div></td>
           <td>{{ row.education_name }}</td>
@@ -103,7 +123,7 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="9" class="empty">{% if current_user.role == 'admin' %}{{ t('no_data') }}{% else %}{{ t('empty_inbox') }}{% endif %}</td></tr>
+        <tr><td colspan="{% if current_user.role == 'admin' %}10{% else %}9{% endif %}" class="empty">{% if current_user.role == 'admin' %}{{ t('no_data') }}{% else %}{{ t('empty_inbox') }}{% endif %}</td></tr>
         {% endfor %}
       </tbody>
     </table>

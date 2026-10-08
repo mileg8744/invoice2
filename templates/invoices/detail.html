@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block page_title %}{{ t('detail') }} {{ row.invoice_no }}{% endblock %}
 {% block content %}
+{% if current_user.role == 'admin' and not mail_live %}
+<div class="alert alert-warning">{{ t('mail_live_off') }} <a href="{{ url_for('hq_settings') }}">{{ t('hq_settings') }}</a></div>
+{% endif %}
 <div class="detail-head">
   <div>
     <div class="mono">{{ row.invoice_no }}</div>
@@ -13,17 +16,11 @@
     {% if current_user.role == 'admin' %}
     <a class="btn btn-outline-navy" href="{{ url_for('invoice_edit', iid=row.id) }}">{{ t('edit') }}</a>
     {% if row.status == 'draft' %}
-    <form method="post" action="{{ url_for('invoice_issue', iid=row.id) }}" onsubmit="return confirm('{{ t('confirm_issue') }}');">
-      <button class="btn btn-navy" type="submit">{{ t('issue') }}</button>
-    </form>
+    <a class="btn btn-navy" href="{{ url_for('invoice_compose', iid=row.id, kind='issue') }}">{{ t('issue') }}</a>
     {% else %}
-    <form method="post" action="{{ url_for('invoice_resend', iid=row.id) }}">
-      <button class="btn btn-outline-navy" type="submit">{{ t('reissue_mail') }}</button>
-    </form>
+    <a class="btn btn-outline-navy" href="{{ url_for('invoice_compose', iid=row.id, kind='resend') }}">{{ t('reissue_mail') }}</a>
     {% if row.status in ['issued','acknowledged'] %}
-    <form method="post" action="{{ url_for('invoice_remind', iid=row.id) }}">
-      <button class="btn btn-ghost" type="submit">{{ t('remind') }}</button>
-    </form>
+    <a class="btn btn-ghost" href="{{ url_for('invoice_compose', iid=row.id, kind='remind') }}">{{ t('remind') }}</a>
     {% endif %}
     {% endif %}
     <form method="post" action="{{ url_for('invoice_delete', iid=row.id) }}" onsubmit="return confirm('{{ t('confirm_delete_invoice') }}');">

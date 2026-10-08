@@ -46,6 +46,7 @@ class Subsidiary(Base):
     region_en: Mapped[str] = mapped_column(String(50), nullable=False)
     country: Mapped[str] = mapped_column(String(50), nullable=False)
     country_en: Mapped[str] = mapped_column(String(50), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(80), default="")
     name_ko: Mapped[str] = mapped_column(String(200), nullable=False)
     name_en: Mapped[str] = mapped_column(String(200), nullable=False)
     address_en: Mapped[str] = mapped_column(Text, default="")

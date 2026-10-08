@@ -5,6 +5,7 @@ from io import BytesIO, StringIO
 from pathlib import Path
 import csv
 import json
+import logging
 import re
 
 from flask import (
@@ -28,10 +29,19 @@ from werkzeug.utils import secure_filename
 
 from config import Config, INSTANCE_DIR, PDF_DIR, STAMP_PATH, STATIC_DIR, UPLOAD_DIR
 from i18n import translate
-from mailer import hq_copy_emails, parse_emails, send_invoice_email
+from mailer import (
+    draft_mail_content,
+    hq_copy_emails,
+    mail_placeholder_help,
+    parse_emails,
+    send_invoice_email,
+    send_test_email,
+)
+from smtp_mail import smtp_configured
 from models import AuditLog, Base, Invoice, InvoiceItem, Subsidiary, Training, User, utcnow
 from pdf_invoice import generate_invoice_pdf
 from regions import REGIONS, apply_region, resolve_region
+from entity_types import ENTITY_TYPES, entity_type_label, resolve_entity_type
 from seed import seed_if_empty
 from hq_settings import load_hq_settings, save_hq_settings
 from address_search import search_english_addresses
@@ -42,6 +52,7 @@ STATUS_ORDER = ["draft", "issued", "acknowledged", "paid"]
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+    logging.getLogger("pgu.mail").setLevel(logging.INFO)
     INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     PDF_DIR.mkdir(parents=True, exist_ok=True)
@@ -83,6 +94,8 @@ def create_app():
             sub_cols = {c["name"] for c in inspector.get_columns("subsidiaries")}
             if "notes" not in sub_cols:
                 conn.exec_driver_sql("ALTER TABLE subsidiaries ADD COLUMN notes TEXT DEFAULT ''")
+            if "entity_type" not in sub_cols:
+                conn.exec_driver_sql("ALTER TABLE subsidiaries ADD COLUMN entity_type VARCHAR(80) DEFAULT ''")
 
     with Session() as db:
         seed_if_empty(db)
@@ -156,8 +169,12 @@ def create_app():
             "current_user": user,
             "today": date.today().strftime("%Y-%m-%d"),
             "status_label": lambda s: t(f"status_{s}") if s else "",
+            "entity_types": ENTITY_TYPES,
+            "entity_type_label": entity_type_label,
             "hq_copy_email": Config.HQ_COPY_EMAIL,
             "google_maps_key": getattr(Config, "GOOGLE_MAPS_API_KEY", "") or "",
+            "mail_live": smtp_configured(),
+            "mail_from": getattr(Config, "MAIL_FROM", "") or "",
         }
 
     @app.template_filter("krw")
@@ -313,15 +330,74 @@ def create_app():
             err = mail.get("error") or ""
             if err == "no_email":
                 flash(t("no_email"), "danger")
-            elif err == "smtp_not_configured":
+            elif err in (
+                "smtp_not_configured",
+                "smtp_disabled",
+                "graph_not_configured",
+                "gmail_not_configured",
+                "gmail_not_connected",
+            ):
                 flash(t("smtp_not_configured"), "danger")
+            elif err == "smtp_auth_failed":
+                flash(t("smtp_auth_failed"), "danger")
+            elif err == "mail_body_required":
+                flash(t("mail_body_required"), "danger")
             else:
                 flash(f"{t('mail_send_fail')} {err}".strip(), "danger")
             return False
         flash(t(success_key), "success")
+        to_list = mail.get("to") or mail.get("recipients") or []
+        cc_list = mail.get("cc") or []
+        if to_list:
+            flash(f"{t('mail_to')}: {', '.join(to_list)}", "info")
+        if cc_list:
+            flash(f"{t('mail_cc')}: {', '.join(cc_list)}", "info")
         if mail.get("via") == "outbox":
             flash(t("email_saved_outbox"), "info")
         return True
+
+    def mail_log_detail(mail):
+        to_list = ",".join(mail.get("to") or mail.get("recipients") or [])
+        cc_list = ",".join(mail.get("cc") or [])
+        via = mail.get("via") or ""
+        parts = [f"to={to_list}"]
+        if cc_list:
+            parts.append(f"cc={cc_list}")
+        if via:
+            parts.append(f"via={via}")
+        return "; ".join(parts)
+
+    def invoice_compose_recipients(row, kind):
+        if kind == "hq":
+            return hq_copy_emails(), []
+        to_list = parse_emails(getattr(row.subsidiary, "emails", "") or "")
+        cc_list = [e for e in hq_copy_emails() if e not in to_list]
+        return to_list, cc_list
+
+    def render_mail_compose(kind, rows, action, cancel, hidden=None, fill=True):
+        rows = list(rows or [])
+        first = rows[0] if rows else None
+        fill_one = bool(fill and first and len(rows) == 1)
+        draft = draft_mail_content(kind, first if fill_one else None, fill=fill_one)
+        to_parts = []
+        cc_parts = []
+        for row in rows:
+            to_list, cc_list = invoice_compose_recipients(row, kind)
+            to_parts.extend(to_list)
+            cc_parts.extend(cc_list)
+        return render_template(
+            "invoices/compose.html",
+            kind=kind,
+            rows=rows,
+            draft=draft,
+            action=action,
+            cancel=cancel,
+            hidden=hidden or {},
+            selected_ids=[r.id for r in rows],
+            to_text=", ".join(dict.fromkeys(to_parts)),
+            cc_text=", ".join(dict.fromkeys(cc_parts)),
+            placeholders=mail_placeholder_help(),
+        )
 
     EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
     CODE_RE = re.compile(r"([0-9]{2}[A-Za-z]{2}[0-9]{2})")
@@ -678,12 +754,6 @@ def create_app():
         if request.method == "POST":
             payload = {
                 "HQ_COPY_EMAIL": (request.form.get("hq_copy_email") or "").strip(),
-                "MAIL_FROM": (request.form.get("mail_from") or "").strip(),
-                "MAIL_ENABLED": request.form.get("mail_enabled") == "1",
-                "MAIL_HOST": (request.form.get("mail_host") or "").strip(),
-                "MAIL_PORT": (request.form.get("mail_port") or "587").strip(),
-                "MAIL_USERNAME": (request.form.get("mail_username") or "").strip(),
-                "MAIL_PASSWORD": (request.form.get("mail_password") or "").strip() or (hq.get("MAIL_PASSWORD") or ""),
                 "GOOGLE_MAPS_API_KEY": (request.form.get("google_maps_api_key") or "").strip(),
                 "PGU_NAME": (request.form.get("pgu_name") or "").strip(),
                 "PGU_DEPT": (request.form.get("pgu_dept") or "").strip(),
@@ -696,6 +766,14 @@ def create_app():
                 "BANK_ACCOUNT_NAME": (request.form.get("bank_account_name") or "").strip(),
                 "BANK_ACCOUNT_NO": (request.form.get("bank_account_no") or "").strip(),
                 "BANK_SWIFT": (request.form.get("bank_swift") or "").strip(),
+                "MAIL_TPL_ISSUE_SUBJECT": (request.form.get("mail_tpl_issue_subject") or "").strip(),
+                "MAIL_TPL_ISSUE_BODY": (request.form.get("mail_tpl_issue_body") or "").replace("\r", "").strip(),
+                "MAIL_TPL_REMIND_SUBJECT": (request.form.get("mail_tpl_remind_subject") or "").strip(),
+                "MAIL_TPL_REMIND_BODY": (request.form.get("mail_tpl_remind_body") or "").replace("\r", "").strip(),
+                "MAIL_TPL_RESEND_SUBJECT": (request.form.get("mail_tpl_resend_subject") or "").strip(),
+                "MAIL_TPL_RESEND_BODY": (request.form.get("mail_tpl_resend_body") or "").replace("\r", "").strip(),
+                "MAIL_TPL_HQ_SUBJECT": (request.form.get("mail_tpl_hq_subject") or "").strip(),
+                "MAIL_TPL_HQ_BODY": (request.form.get("mail_tpl_hq_body") or "").replace("\r", "").strip(),
             }
             if not payload["PGU_NAME"] or not payload["PGU_ADDRESS"]:
                 flash(t("required"), "danger")
@@ -708,6 +786,13 @@ def create_app():
                 flash(t("saved"), "success")
                 return redirect(url_for("hq_settings"))
         return render_template("settings.html", hq=hq, stamp_exists=STAMP_PATH.exists())
+
+    @app.route("/settings/mail/test", methods=["POST"])
+    @admin_required
+    def mail_test():
+        mail = send_test_email(request.form.get("test_to") or "")
+        flash_mail_result(mail, "mail_test_ok")
+        return redirect(url_for("hq_settings"))
 
     # ---------- subsidiaries ----------
     @app.route("/subsidiaries")
@@ -726,6 +811,7 @@ def create_app():
                     Subsidiary.country.ilike(like),
                     Subsidiary.region.ilike(like),
                     Subsidiary.region_en.ilike(like),
+                    Subsidiary.entity_type.ilike(like),
                 )
             )
         rows = q.order_by(Subsidiary.code.asc()).all()
@@ -740,6 +826,11 @@ def create_app():
         sub.region_en = en
         sub.country = (form.get("country") or "").strip()
         sub.country_en = (form.get("country_en") or "").strip()
+        resolved_type = resolve_entity_type(form.get("entity_type"))
+        if resolved_type:
+            sub.entity_type = resolved_type
+        elif not getattr(sub, "entity_type", None):
+            sub.entity_type = ""
         sub.name_ko = (form.get("name_ko") or "").strip()
         sub.name_en = (form.get("name_en") or "").strip()
         sub.address_en = (form.get("address_en") or "").strip()
@@ -784,7 +875,7 @@ def create_app():
                 except Exception:
                     db.rollback()
                     flash(t("required"), "danger")
-        return render_template("subsidiaries/form.html", row=None, regions=REGIONS)
+        return render_template("subsidiaries/form.html", row=None, regions=REGIONS, entity_types=ENTITY_TYPES)
 
     @app.route("/subsidiaries/<int:sid>/edit", methods=["GET", "POST"])
     @admin_required
@@ -804,7 +895,7 @@ def create_app():
             except Exception:
                 db.rollback()
                 flash(t("required"), "danger")
-        return render_template("subsidiaries/form.html", row=row, regions=REGIONS)
+        return render_template("subsidiaries/form.html", row=row, regions=REGIONS, entity_types=ENTITY_TYPES)
 
     @app.route("/subsidiaries/<int:sid>/reset-password", methods=["POST"])
     @admin_required
@@ -856,6 +947,7 @@ def create_app():
                     Subsidiary.country.ilike(like),
                     Subsidiary.region.ilike(like),
                     Subsidiary.region_en.ilike(like),
+                    Subsidiary.entity_type.ilike(like),
                 )
             )
         rows = q.order_by(Subsidiary.code.asc()).all()
@@ -868,6 +960,7 @@ def create_app():
             "region_en",
             "country",
             "country_en",
+            "entity_type",
             "name_ko",
             "name_en",
             "address_en",
@@ -885,6 +978,7 @@ def create_app():
                     row.region_en,
                     row.country,
                     row.country_en,
+                    getattr(row, "entity_type", "") or "",
                     row.name_ko,
                     row.name_en,
                     row.address_en,
@@ -916,6 +1010,7 @@ def create_app():
             "region_en",
             "country",
             "country_en",
+            "entity_type",
             "name_ko",
             "name_en",
             "address_en",
@@ -932,6 +1027,7 @@ def create_app():
                 "Southeast Asia",
                 "샘플",
                 "Sample",
+                "생산법인",
                 "샘플법인",
                 "POSCO Sample Co., Ltd.",
                 "1 Sample Street, City",
@@ -981,6 +1077,7 @@ def create_app():
                     "region_en": str(norm_key(row, "region_en", "권역영문") or getattr(sub, "region_en", "") or ""),
                     "country": str(norm_key(row, "country", "국가") or getattr(sub, "country", "") or ""),
                     "country_en": str(norm_key(row, "country_en", "국가영문") or getattr(sub, "country_en", "") or ""),
+                    "entity_type": str(norm_key(row, "entity_type", "해외법인유형", "법인유형") or getattr(sub, "entity_type", "") or ""),
                     "name_ko": str(norm_key(row, "name_ko", "법인명") or getattr(sub, "name_ko", "") or ""),
                     "name_en": str(norm_key(row, "name_en", "영문법인명", "official_name") or getattr(sub, "name_en", "") or ""),
                     "address_en": str(norm_key(row, "address_en", "공식영문주소") or getattr(sub, "address_en", "") or ""),
@@ -1872,6 +1969,41 @@ def create_app():
         flash(t("invoice_deleted"), "success")
         return redirect(url_for("invoices"))
 
+    @app.route("/invoices/<int:iid>/compose/<kind>", methods=["GET"])
+    @admin_required
+    def invoice_compose(iid, kind):
+        db = Session()
+        row = db.get(Invoice, iid)
+        if not row:
+            return redirect(url_for("invoices"))
+        if kind == "issue":
+            if row.status != "draft":
+                flash(t("issue_disabled"), "warning")
+                return redirect(url_for("invoice_detail", iid=iid))
+            action = url_for("invoice_issue", iid=iid)
+        elif kind == "remind":
+            if row.status not in ("issued", "acknowledged"):
+                flash(t("issued_only_remind"), "warning")
+                return redirect(url_for("invoice_detail", iid=iid))
+            action = url_for("invoice_remind", iid=iid)
+        elif kind == "resend":
+            if row.status == "draft":
+                return redirect(url_for("invoice_detail", iid=iid))
+            action = url_for("invoice_resend", iid=iid)
+        else:
+            flash(t("not_found"), "danger")
+            return redirect(url_for("invoice_detail", iid=iid))
+        if kind != "hq" and not parse_emails(row.subsidiary.emails):
+            flash(t("no_email"), "danger")
+            return redirect(url_for("invoice_detail", iid=iid))
+        return render_mail_compose(
+            kind,
+            [row],
+            action,
+            url_for("invoice_detail", iid=iid),
+            fill=True,
+        )
+
     @app.route("/invoices/<int:iid>/issue", methods=["POST"])
     @admin_required
     def invoice_issue(iid):
@@ -1885,8 +2017,16 @@ def create_app():
         if not parse_emails(row.subsidiary.emails):
             flash(t("no_email"), "danger")
             return redirect(url_for("invoice_detail", iid=iid))
+        if request.form.get("compose_ready") != "1":
+            return redirect(url_for("invoice_compose", iid=iid, kind="issue"))
         path = rebuild_pdf(row)
-        mail = send_invoice_email(row, path, remind=False)
+        mail = send_invoice_email(
+            row,
+            path,
+            kind="issue",
+            subject=request.form.get("mail_subject"),
+            body_text=request.form.get("mail_body"),
+        )
         if not flash_mail_result(mail, "issued_ok", commit=False):
             return redirect(url_for("invoice_detail", iid=iid))
         row.status = "issued"
@@ -1898,7 +2038,7 @@ def create_app():
             "invoice",
             row.invoice_no,
             "ISSUE",
-            f"to={','.join(mail.get('recipients') or [])}; via={mail.get('via')}",
+            mail_log_detail(mail),
         )
         db.commit()
         return redirect(url_for("invoice_detail", iid=iid))
@@ -1955,10 +2095,21 @@ def create_app():
         if not row or row.status not in ("issued", "acknowledged"):
             flash(t("issued_only_remind"), "warning")
             return redirect(url_for("invoice_detail", iid=iid) if row else url_for("invoices"))
+        if not parse_emails(row.subsidiary.emails):
+            flash(t("no_email"), "danger")
+            return redirect(url_for("invoice_detail", iid=iid))
+        if request.form.get("compose_ready") != "1":
+            return redirect(url_for("invoice_compose", iid=iid, kind="remind"))
         path = rebuild_pdf(row)
-        mail = send_invoice_email(row, path, remind=True)
+        mail = send_invoice_email(
+            row,
+            path,
+            kind="remind",
+            subject=request.form.get("mail_subject"),
+            body_text=request.form.get("mail_body"),
+        )
         if flash_mail_result(mail, "remind_ok", commit=False):
-            log_action(db, "invoice", row.invoice_no, "REMIND", ",".join(mail.get("recipients") or []))
+            log_action(db, "invoice", row.invoice_no, "REMIND", mail_log_detail(mail))
             db.commit()
         return redirect(url_for("invoice_detail", iid=iid))
 
@@ -1969,12 +2120,93 @@ def create_app():
         row = db.get(Invoice, iid)
         if not row or row.status == "draft":
             return redirect(url_for("invoices"))
+        if not parse_emails(row.subsidiary.emails):
+            flash(t("no_email"), "danger")
+            return redirect(url_for("invoice_detail", iid=iid))
+        if request.form.get("compose_ready") != "1":
+            return redirect(url_for("invoice_compose", iid=iid, kind="resend"))
         path = rebuild_pdf(row)
-        mail = send_invoice_email(row, path, updated=True)
+        mail = send_invoice_email(
+            row,
+            path,
+            kind="resend",
+            subject=request.form.get("mail_subject"),
+            body_text=request.form.get("mail_body"),
+        )
         if flash_mail_result(mail, "mail_resent", commit=False):
-            log_action(db, "invoice", row.invoice_no, "RESEND", ",".join(mail.get("recipients") or []))
+            log_action(db, "invoice", row.invoice_no, "RESEND", mail_log_detail(mail))
             db.commit()
         return redirect(url_for("invoice_detail", iid=iid))
+
+    @app.route("/invoices/bulk-remind", methods=["POST"])
+    @admin_required
+    def invoices_bulk_remind():
+        db = Session()
+        raw_ids = request.form.getlist("invoice_ids")
+        ids = []
+        for raw in raw_ids:
+            try:
+                ids.append(int(raw))
+            except (TypeError, ValueError):
+                continue
+        if not ids:
+            flash(t("bulk_remind_none"), "warning")
+            return redirect(url_for("invoices", **request.args))
+        rows = (
+            db.query(Invoice)
+            .filter(Invoice.id.in_(ids), Invoice.status == "issued")
+            .order_by(Invoice.year.asc(), Invoice.half.asc(), Invoice.seq.asc())
+            .all()
+        )
+        if not rows:
+            flash(t("bulk_remind_none"), "warning")
+            return redirect(url_for("invoices", **request.args))
+        if request.form.get("compose_ready") != "1":
+            return render_mail_compose(
+                "remind",
+                rows,
+                url_for("invoices_bulk_remind", **request.args),
+                url_for("invoices", **request.args),
+                fill=False,
+            )
+        subject = request.form.get("mail_subject")
+        body_text = request.form.get("mail_body")
+        sent = failed = skipped = 0
+        via = "outbox"
+        for row in rows:
+            if not parse_emails(getattr(row.subsidiary, "emails", "") or ""):
+                skipped += 1
+                continue
+            try:
+                path = rebuild_pdf(row)
+                mail = send_invoice_email(
+                    row,
+                    path,
+                    kind="remind",
+                    subject=subject,
+                    body_text=body_text,
+                )
+                if mail.get("ok"):
+                    sent += 1
+                    if mail.get("via") == "smtp":
+                        via = "smtp"
+                    log_action(db, "invoice", row.invoice_no, "REMIND", mail_log_detail(mail))
+                else:
+                    failed += 1
+            except Exception:
+                failed += 1
+        db.commit()
+        if sent:
+            flash(f"{t('bulk_remind_ok')} {sent}{t('rows')}", "success")
+            if via == "outbox":
+                flash(t("email_saved_outbox"), "info")
+        if skipped:
+            flash(f"{t('no_email')} {skipped}{t('rows')}", "warning")
+        if failed:
+            flash(f"{t('hq_bulk_fail')} {failed}{t('rows')}", "warning")
+        if not sent and not failed and not skipped:
+            flash(t("bulk_remind_none"), "warning")
+        return redirect(url_for("invoices", **request.args))
 
     @app.route("/invoices/hq-copy", methods=["POST"])
     @admin_required
@@ -1992,12 +2224,28 @@ def create_app():
         if not rows:
             flash(t("hq_bulk_none"), "warning")
             return redirect(url_for("invoices", **request.args))
+        if request.form.get("compose_ready") != "1":
+            return render_mail_compose(
+                "hq",
+                rows,
+                url_for("invoices_hq_copy", **request.args),
+                url_for("invoices", **request.args),
+                fill=False,
+            )
+        subject = request.form.get("mail_subject")
+        body_text = request.form.get("mail_body")
         sent = failed = 0
         via = "outbox"
         for row in rows:
             try:
                 path = rebuild_pdf(row)
-                mail = send_invoice_email(row, path, hq_only=True)
+                mail = send_invoice_email(
+                    row,
+                    path,
+                    kind="hq",
+                    subject=subject,
+                    body_text=body_text,
+                )
                 if mail.get("ok"):
                     sent += 1
                     if mail.get("via") == "smtp":
@@ -2195,4 +2443,4 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)

@@ -29,6 +29,7 @@
           <th>{{ t('code') }}</th>
           <th>{{ t('region') }}</th>
           <th>{{ t('country') }}</th>
+          <th>{{ t('entity_type') }}</th>
           <th>{{ t('name') }}</th>
           <th>{{ t('address_en') }}</th>
           <th>{{ t('emails') }}</th>
@@ -42,6 +43,7 @@
           <td class="mono">{{ row.code }}</td>
           <td>{% if lang == 'en' %}{{ row.region_en }}{% else %}{{ row.region }}{% endif %}</td>
           <td>{% if lang == 'en' %}{{ row.country_en }}{% else %}{{ row.country }}{% endif %}</td>
+          <td>{{ entity_type_label(row.entity_type, lang) or '-' }}</td>
           <td>{{ row.name_ko }}<div class="tiny">{{ row.name_en }}</div></td>
           <td class="clamp">{{ row.address_en }}</td>
           <td class="clamp">{{ row.emails }}</td>
@@ -61,7 +63,7 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="8" class="empty">{{ t('no_data') }}</td></tr>
+        <tr><td colspan="9" class="empty">{{ t('no_data') }}</td></tr>
         {% endfor %}
       </tbody>
     </table>

@@ -10,12 +10,6 @@ HQ_SETTINGS_PATH = INSTANCE_DIR / "hq_settings.json"
 
 HQ_FIELDS = (
     "HQ_COPY_EMAIL",
-    "MAIL_FROM",
-    "MAIL_ENABLED",
-    "MAIL_HOST",
-    "MAIL_PORT",
-    "MAIL_USERNAME",
-    "MAIL_PASSWORD",
     "GOOGLE_MAPS_API_KEY",
     "PGU_NAME",
     "PGU_DEPT",
@@ -28,13 +22,27 @@ HQ_FIELDS = (
     "BANK_ACCOUNT_NAME",
     "BANK_ACCOUNT_NO",
     "BANK_SWIFT",
+    "MAIL_TPL_ISSUE_SUBJECT",
+    "MAIL_TPL_ISSUE_BODY",
+    "MAIL_TPL_REMIND_SUBJECT",
+    "MAIL_TPL_REMIND_BODY",
+    "MAIL_TPL_RESEND_SUBJECT",
+    "MAIL_TPL_RESEND_BODY",
+    "MAIL_TPL_HQ_SUBJECT",
+    "MAIL_TPL_HQ_BODY",
 )
 
-BOOL_KEYS = {"MAIL_ENABLED"}
-INT_KEYS = {"MAIL_PORT"}
+BOOL_KEYS = set()
+INT_KEYS = set()
 
 
 def _factory_value(key):
+    if key.startswith("MAIL_TPL_"):
+        from mailer import DEFAULT_MAIL_TEMPLATES
+
+        rest = key[len("MAIL_TPL_") :]
+        kind, _, field = rest.partition("_")
+        return DEFAULT_MAIL_TEMPLATES.get(kind.lower(), {}).get(field.lower(), "")
     val = getattr(Config, key, "")
     if key in BOOL_KEYS:
         return bool(val)

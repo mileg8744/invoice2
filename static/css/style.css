@@ -159,6 +159,9 @@ html.sidebar-collapsed .sidebar-restore-tab { display: inline-flex; }
   border-bottom: 1px solid var(--line);
 }
 .table-clean td { vertical-align: middle; font-size: 13.5px; }
+.table-clean .col-check { width: 36px; text-align: center; }
+.table-clean .col-check .form-check-input { margin: 0; cursor: pointer; }
+.table-clean .col-check .form-check-input:disabled { cursor: not-allowed; opacity: 0.35; }
 #learner-roster { scroll-margin-top: 24px; }
 .roster-table thead th { font-size: 13px; }
 .roster-table td { font-size: 15px; padding-top: 12px; padding-bottom: 12px; }

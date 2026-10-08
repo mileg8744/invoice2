@@ -2,6 +2,34 @@
 {% from "macros.html" import address_en_field with context %}
 {% block page_title %}{{ t('hq_settings') }}{% endblock %}
 {% block content %}
+<section class="card-panel mb-3" style="max-width:860px">
+  <div class="section-head">
+    <h2>{{ t('mail_section') }}</h2>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">{{ t('mail_from') }}</label>
+    <div class="form-control-plaintext fw-semibold">{{ mail_from }}</div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">{{ t('mail_method') }}</label>
+    <div class="form-control-plaintext">{{ t('mail_method_value') }}</div>
+  </div>
+  {% if mail_live %}
+  <div class="alert alert-success">{{ t('smtp_ready') }}</div>
+  {% else %}
+  <div class="alert alert-warning mb-0">{{ t('mail_live_off') }}</div>
+  {% endif %}
+  <p class="muted mt-3">{{ t('smtp_help') }}</p>
+  <form method="post" action="{{ url_for('mail_test') }}" class="mt-4">
+    <label class="form-label" for="mail-test-to">{{ t('mail_test_to') }}</label>
+    <div class="d-flex gap-2 flex-wrap align-items-end">
+      <input class="form-control" id="mail-test-to" name="test_to" type="email" placeholder="you@example.com" required style="max-width:360px" {% if not mail_live %}disabled{% endif %}>
+      <button class="btn btn-navy" type="submit" {% if not mail_live %}disabled{% endif %}>{{ t('mail_test') }}</button>
+    </div>
+    <p class="muted mt-1 mb-0">{{ t('mail_test_hint') }}</p>
+  </form>
+</section>
+
 <form method="post">
   <section class="card-panel mb-3" style="max-width:860px">
     <div class="section-head">
@@ -12,33 +40,6 @@
       <label class="form-label">{{ t('hq_copy_to') }}</label>
       <input class="form-control" name="hq_copy_email" value="{{ hq.HQ_COPY_EMAIL }}" required>
       <p class="muted mt-1 mb-0">{{ t('hq_copy_email_hint') }}</p>
-    </div>
-    <div class="mb-3">
-      <label class="form-label">{{ t('mail_from') }}</label>
-      <input class="form-control" name="mail_from" value="{{ hq.MAIL_FROM }}">
-    </div>
-    <div class="form-check mb-3">
-      <input class="form-check-input" type="checkbox" name="mail_enabled" value="1" id="mailEnabled" {% if hq.MAIL_ENABLED %}checked{% endif %}>
-      <label class="form-check-label" for="mailEnabled">{{ t('mail_enabled') }}</label>
-    </div>
-    <p class="muted">{{ t('mail_smtp_help') }}</p>
-    <div class="row g-3">
-      <div class="col-md-8">
-        <label class="form-label">{{ t('mail_host') }}</label>
-        <input class="form-control" name="mail_host" value="{{ hq.MAIL_HOST }}">
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">{{ t('mail_port') }}</label>
-        <input class="form-control" name="mail_port" value="{{ hq.MAIL_PORT }}">
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">{{ t('mail_username') }}</label>
-        <input class="form-control" name="mail_username" value="{{ hq.MAIL_USERNAME }}" autocomplete="off">
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">{{ t('mail_password') }}</label>
-        <input class="form-control" type="password" name="mail_password" value="" autocomplete="new-password" placeholder="{{ t('mail_password_keep') if hq.MAIL_PASSWORD else '' }}">
-      </div>
     </div>
   </section>
 
@@ -111,6 +112,24 @@
     <div class="mt-4">
       <button class="btn btn-navy" type="submit">{{ t('save') }}</button>
     </div>
+  </section>
+
+  <section class="card-panel mb-3" style="max-width:860px">
+    <div class="section-head">
+      <h2>{{ t('mail_templates') }}</h2>
+    </div>
+    <p class="muted">{{ t('mail_templates_help') }}</p>
+    <p class="muted">{{ t('mail_placeholder_help') }} <span class="mono">{{ '{invoice_no} {entity} {entity_code} {education} {period} {qty} {amount} {currency} {amount_krw} {portal_url}' }}</span></p>
+    {% for kind in ['issue', 'remind', 'resend', 'hq'] %}
+    <div class="mb-4">
+      <h3 class="h6">{{ t('mail_kind_' + kind) }}</h3>
+      <label class="form-label">{{ t('mail_subject') }}</label>
+      <input class="form-control mb-2" name="mail_tpl_{{ kind }}_subject" value="{{ hq['MAIL_TPL_' + kind|upper + '_SUBJECT'] }}">
+      <label class="form-label">{{ t('mail_body') }}</label>
+      <textarea class="form-control" name="mail_tpl_{{ kind }}_body" rows="7">{{ hq['MAIL_TPL_' + kind|upper + '_BODY'] }}</textarea>
+    </div>
+    {% endfor %}
+    <button class="btn btn-navy" type="submit">{{ t('save') }}</button>
   </section>
 </form>
 

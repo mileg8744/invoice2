@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block page_title %}{{ t('compose_mail') }}{% endblock %}
+{% block content %}
+{% if not mail_live %}
+<div class="alert alert-warning">{{ t('mail_live_off') }} <a href="{{ url_for('hq_settings') }}">{{ t('hq_settings') }}</a></div>
+{% endif %}
+<div class="detail-head">
+  <div>
+    <h2 class="h4 mb-1">{{ t('compose_mail') }} · {{ t('mail_kind_' + kind) }}</h2>
+    <p class="muted mb-0">{{ t('compose_mail_help') }}</p>
+  </div>
+</div>
+
+<section class="card-panel mb-3" style="max-width:860px">
+  <h3 class="h6">{{ t('mail_to') }}</h3>
+  <p class="mb-1">{{ to_text or '-' }}</p>
+  {% if cc_text %}
+  <div class="tiny">{{ t('mail_cc') }}: {{ cc_text }}</div>
+  {% endif %}
+  {% if rows|length > 1 %}
+  <p class="muted mt-3 mb-1">{{ t('compose_selected') }} {{ rows|length }}{{ t('rows') }}</p>
+  <ul class="tiny mb-0">
+    {% for row in rows %}
+    <li class="mono">{{ row.invoice_no }} · {{ row.subsidiary.code }} · {{ row.subsidiary.name_en }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<form method="post" action="{{ action }}" class="card-panel" style="max-width:860px">
+  {% for key, val in hidden.items() %}
+  <input type="hidden" name="{{ key }}" value="{{ val }}">
+  {% endfor %}
+  {% for iid in selected_ids %}
+  <input type="hidden" name="invoice_ids" value="{{ iid }}">
+  {% endfor %}
+  <input type="hidden" name="compose_ready" value="1">
+  <div class="mb-3">
+    <label class="form-label" for="mail-subject">{{ t('mail_subject') }}</label>
+    <input class="form-control" id="mail-subject" name="mail_subject" value="{{ draft.subject }}" required>
+  </div>
+  <div class="mb-3">
+    <label class="form-label" for="mail-body">{{ t('mail_body') }}</label>
+    <textarea class="form-control" id="mail-body" name="mail_body" rows="12" required>{{ draft.body }}</textarea>
+    <p class="muted mt-1 mb-0">{{ t('mail_placeholder_help') }} <span class="mono">{{ placeholders }}</span></p>
+    <p class="muted mb-0">{{ t('compose_table_note') }}</p>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <button class="btn btn-navy" type="submit">{{ t('send_composed') }}</button>
+    <a class="btn btn-ghost" href="{{ cancel }}">{{ t('cancel') }}</a>
+  </div>
+</form>
+{% endblock %}
