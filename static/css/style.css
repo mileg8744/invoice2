@@ -276,14 +276,27 @@ html.sidebar-collapsed .sidebar-restore-tab { display: inline-flex; }
 .period-card-title { color: var(--navy); font-size: 22px; font-weight: 700; margin: 6px 0 12px; }
 .period-card-stats { color: var(--ink); font-size: 14px; line-height: 1.6; }
 .period-card-go { display: inline-block; margin-top: 14px; color: var(--navy); font-weight: 700; font-size: 13px; }
+.period-back-box {
+  display: inline-flex; align-items: center;
+  background: #fff; border: 1px solid var(--line); border-radius: 14px;
+  padding: 10px 12px; margin-bottom: 12px;
+  box-shadow: 0 8px 24px rgba(0,32,96,.04);
+}
+.period-back {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 16px; border-radius: 10px;
+  background: var(--ice); color: var(--navy);
+  font-size: 16px; font-weight: 700; line-height: 1.2;
+  text-decoration: none;
+}
+.period-back i { font-size: 18px; }
+.period-back:hover { background: var(--navy); color: #fff; }
 .period-banner {
   display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
   background: #fff; border: 1px solid var(--line); border-radius: 14px;
   padding: 16px 20px; margin-bottom: 14px;
 }
 .period-banner-title { color: var(--navy); font-size: 22px; font-weight: 700; }
-.period-back { display: inline-block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--steel); text-decoration: none; }
-.period-back:hover { color: var(--navy); }
 .period-unassigned { border-color: #e6c7a8; }
 
 @media (max-width: 1100px) {
