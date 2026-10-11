@@ -1,11 +1,29 @@
 {% extends "base.html" %}
-{% block page_title %}{{ t('trainings') }}{% endblock %}
+{% block page_title %}{{ period.label }} | {{ t('trainings') }}{% endblock %}
 {% block content %}
+{% include "periods/_banner.html" %}
 <div class="toolbar">
-  <div></div>
-  <a class="btn btn-navy" href="{{ url_for('training_new') }}"><i class="bi bi-plus"></i> {{ t('new_training') }}</a>
+  <p class="muted mb-0">{{ t('training_period_help') }}</p>
+  <a class="btn btn-navy" href="{{ url_for('training_new_period', year=period.year, half=period.half) }}"><i class="bi bi-plus"></i> {{ t('new_training') }}</a>
 </div>
+<form class="filter-bar" method="get">
+  <select class="form-select" name="session">
+    <option value="">{{ t('session') }}</option>
+    {% for n in sessions %}
+    <option value="{{ n }}" {% if filters.session == n|string %}selected{% endif %}>{{ t('session_n').replace('{n}', n|string) }}</option>
+    {% endfor %}
+  </select>
+  <select class="form-select" name="usage">
+    <option value="open" {% if filters.usage == 'open' %}selected{% endif %}>{{ t('usage_open') }}</option>
+    <option value="issued" {% if filters.usage == 'issued' %}selected{% endif %}>{{ t('usage_issued') }}</option>
+    <option value="all" {% if filters.usage == 'all' %}selected{% endif %}>{{ t('usage_all') }}</option>
+  </select>
+  <button class="btn btn-navy" type="submit">{{ t('filter') }}</button>
+  <a class="btn btn-ghost" href="{{ url_for('trainings_period', year=period.year, half=period.half) }}">{{ t('reset') }}</a>
+</form>
 <form method="post" action="{{ url_for('training_bulk_invoices') }}" onsubmit="return confirm('{{ t('confirm_bulk_invoices') }}');">
+<input type="hidden" name="year" value="{{ period.year }}">
+<input type="hidden" name="half" value="{{ period.half }}">
 <div class="card-panel mb-3">
   <div class="upload-inline wrap">
     <strong>{{ t('bulk_from_trainings') }}</strong>
@@ -28,6 +46,7 @@
           <th style="width:42px">
             <input class="form-check-input" type="checkbox" id="chkAll" {% if rows %}checked{% endif %}>
           </th>
+          <th>{{ t('training_group') }}</th>
           <th>{{ t('education') }}</th>
           <th>{{ t('period') }}</th>
           <th>{{ t('instructor') }}</th>
@@ -35,17 +54,24 @@
           <th class="text-end">{{ t('unit_krw') }}</th>
           <th class="text-end">{{ t('krw_total') }}</th>
           <th class="text-end">{{ t('amount_usd') }}</th>
+          <th>{{ t('status') }}</th>
           <th>{{ t('actions') }}</th>
         </tr>
       </thead>
       <tbody>
-        {% for row in rows %}
+        {% for group in groups %}
+        <tr class="group-row">
+          <td colspan="11">{{ group.label }}</td>
+        </tr>
+        {% for row in group.rows %}
         {% set qty = learner_counts.get(row.id, 0) %}
         {% set krw_total = qty * (row.unit_price_krw or 0) %}
-        <tr>
+        {% set used = row.id in issued_ids %}
+        <tr class="{% if used %}is-issued{% endif %}">
           <td>
-            <input class="form-check-input js-training-check" type="checkbox" name="training_ids" value="{{ row.id }}" checked>
+            <input class="form-check-input js-training-check" type="checkbox" name="training_ids" value="{{ row.id }}" {% if not used %}checked{% endif %}>
           </td>
+          <td class="nowrap">{{ group.label }}</td>
           <td>{{ row.title }}{% if row.title_en and row.title_en != row.title %}<div class="tiny">{{ row.title_en }}</div>{% endif %}</td>
           <td>{{ row.start_date | ymd }} ~ {{ row.end_date | ymd }}</td>
           <td>{{ row.instructor }}</td>
@@ -53,13 +79,21 @@
           <td class="text-end">{{ row.unit_price_krw | krw }}</td>
           <td class="text-end">{{ krw_total | krw }}</td>
           <td class="text-end fx-amount js-fx-cell" data-fx-krw="{{ krw_total }}">{{ t('fx_need_rate') }}</td>
+          <td>
+            {% if used %}
+            <span class="badge-status s-issued">{{ t('training_issued_badge') }}</span>
+            {% else %}
+            <span class="badge-status s-draft">{{ t('training_open_badge') }}</span>
+            {% endif %}
+          </td>
           <td class="nowrap">
-            <a class="btn btn-sm btn-outline-navy" href="{{ url_for('training_edit', tid=row.id) }}">{{ t('edit') }}</a>
+            <a class="btn btn-sm btn-outline-navy" href="{{ url_for('training_edit_period', year=period.year, half=period.half, tid=row.id) }}">{{ t('edit') }}</a>
             <button class="btn btn-sm btn-ghost" type="submit" form="del-{{ row.id }}" onclick="return confirm('{{ t('confirm_delete') }}');">{{ t('delete') }}</button>
           </td>
         </tr>
+        {% endfor %}
         {% else %}
-        <tr><td colspan="9" class="empty">{{ t('no_data') }}</td></tr>
+        <tr><td colspan="11" class="empty">{{ t('period_empty') }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -67,14 +101,50 @@
 </section>
 </form>
 {% for row in rows %}
-<form id="del-{{ row.id }}" method="post" action="{{ url_for('training_delete', tid=row.id) }}"></form>
+<form id="del-{{ row.id }}" method="post" action="{{ url_for('training_delete', tid=row.id) }}">
+  <input type="hidden" name="year" value="{{ period.year }}">
+  <input type="hidden" name="half" value="{{ period.half }}">
+</form>
 {% endfor %}
+
+<section class="card-panel mt-3">
+  <div class="section-head">
+    <h2>{{ t('participation') }}</h2>
+  </div>
+  {% if participation %}
+  <div class="table-responsive">
+    <table class="table table-clean">
+      <thead>
+        <tr>
+          <th>{{ t('code') }}</th>
+          <th>{{ t('name') }}</th>
+          <th class="text-end">{{ t('learner_count') }}</th>
+          <th class="text-end">{{ t('trainings') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in participation %}
+        <tr>
+          <td class="mono">{{ row.code }}</td>
+          <td>{{ row.name }}</td>
+          <td class="text-end">{{ row.learners }}</td>
+          <td class="text-end">{{ row.programs }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted mb-0">{{ t('participation_empty') }}</p>
+  {% endif %}
+</section>
 {% endblock %}
 {% block scripts %}
 <script>
   const chkAll = document.getElementById("chkAll");
   const boxes = () => Array.from(document.querySelectorAll('input[name="training_ids"]'));
   if (chkAll) {
+    chkAll.checked = boxes().length > 0 && boxes().every((b) => b.checked);
     chkAll.addEventListener("change", () => {
       boxes().forEach((el) => { el.checked = chkAll.checked; });
       refreshTrainingFx();

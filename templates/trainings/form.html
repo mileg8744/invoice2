@@ -1,6 +1,7 @@
 {% extends "base.html" %}
-{% block page_title %}{% if row %}{{ t('edit') }}{% else %}{{ t('new_training') }}{% endif %}{% endblock %}
+{% block page_title %}{{ period.label }} | {% if row %}{{ t('edit') }}{% else %}{{ t('new_training') }}{% endif %}{% endblock %}
 {% block content %}
+{% include "periods/_banner.html" %}
 <div class="card-panel" style="max-width:860px">
   <form method="post">
     <div class="row g-3">
@@ -14,11 +15,16 @@
       </div>
       <div class="col-md-6">
         <label class="form-label">{{ t('period') }} (Start)</label>
-        <input class="form-control" type="date" name="start_date" value="{{ row.start_date.strftime('%Y-%m-%d') if row else today }}" required>
+        <input class="form-control" type="date" name="start_date" value="{{ row.start_date.strftime('%Y-%m-%d') if row else default_start }}" min="{{ period_start }}" max="{{ period_end }}" required>
       </div>
       <div class="col-md-6">
         <label class="form-label">{{ t('period') }} (End)</label>
-        <input class="form-control" type="date" name="end_date" value="{{ row.end_date.strftime('%Y-%m-%d') if row else today }}" required>
+        <input class="form-control" type="date" name="end_date" value="{{ row.end_date.strftime('%Y-%m-%d') if row else default_end }}" min="{{ period_start }}" max="{{ period_end }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">{{ t('session') }}</label>
+        <input class="form-control" type="number" min="0" step="1" name="session_no" value="{{ session_no_value }}" placeholder="1">
+        <p class="muted mt-2 mb-0">{{ t('session_hint') }}</p>
       </div>
       <div class="col-md-6">
         <label class="form-label">{{ t('instructor') }}</label>
@@ -67,9 +73,20 @@
     </div>
     <div class="mt-4 d-flex gap-2">
       <button class="btn btn-navy" type="submit">{{ t('save') }}</button>
-      <a class="btn btn-ghost" href="{{ url_for('trainings') }}">{{ t('cancel') }}</a>
+      <a class="btn btn-ghost" href="{{ url_for('trainings_period', year=period.year, half=period.half) }}">{{ t('cancel') }}</a>
     </div>
   </form>
+  {% if row %}
+  <div class="mt-4">
+    <label class="form-label">{{ t('learner_excel') }}</label>
+    <p class="muted">{{ t('learner_excel_help') }}</p>
+    <form class="upload-inline wrap" method="post" action="{{ url_for('training_learners_upload', year=period.year, half=period.half, tid=row.id) }}" enctype="multipart/form-data">
+      <a class="btn btn-ghost" href="{{ url_for('training_learners_template') }}">{{ t('learner_excel_template') }}</a>
+      <input class="form-control" type="file" name="file" accept=".xlsx,.xls,.csv" required>
+      <button class="btn btn-outline-navy" type="submit">{{ t('upload') }}</button>
+    </form>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
 {% block scripts %}

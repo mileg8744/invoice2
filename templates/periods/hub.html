@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block page_title %}{{ page_label }}{% endblock %}
+{% block content %}
+<p class="muted">{{ hub_help }}</p>
+
+{% for year, cards in year_groups %}
+<section class="period-year">
+  <h2 class="period-year-title">{{ year }}{{ t('year_suffix') }}</h2>
+  <div class="period-grid">
+    {% for card in cards %}
+    <a class="period-card {% if card.empty %}is-empty{% endif %}" href="{{ card.url }}">
+      <div class="period-card-kicker">{{ t('half_' ~ card.half) }}</div>
+      <div class="period-card-title">{{ card.label }}</div>
+      <div class="period-card-stats">
+        <div>{{ t('period_training_count').replace('{n}', card.training_count|string) }}</div>
+        <div>{{ t('period_learner_count').replace('{n}', card.learner_count|string) }}</div>
+        <div>{{ t('period_invoice_count').replace('{n}', card.invoice_count|string) }}</div>
+      </div>
+      <span class="period-card-go">{{ t('period_manage') }} →</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="card-panel">
+  <p class="empty mb-0">{{ t('period_hub_empty') }}</p>
+</section>
+{% endfor %}
+
+{% if unassigned_count %}
+<section class="card-panel period-unassigned">
+  <strong>{{ t('period_unassigned') }}</strong>
+  <p class="muted mb-0">{{ t('period_unassigned_help') }} · {{ unassigned_count }}{{ t('rows') }}</p>
+</section>
+{% endif %}
+
+{% if current_user.role == 'admin' %}
+<section class="card-panel mt-3">
+  <div class="section-head">
+    <h2>{{ t('period_create') }}</h2>
+  </div>
+  <p class="muted">{{ t('period_create_help') }}</p>
+  <form class="filter-bar mb-0" method="post" action="{{ url_for('period_create') }}">
+    <input type="hidden" name="next" value="{{ kind }}">
+    <input class="form-control" style="max-width:120px" type="number" name="year" min="2000" max="2100" value="{{ default_year }}" required>
+    <select class="form-select" name="half" required>
+      <option value="1">{{ t('half_1') }}</option>
+      <option value="2">{{ t('half_2') }}</option>
+    </select>
+    <button class="btn btn-navy" type="submit">{{ t('period_create') }}</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

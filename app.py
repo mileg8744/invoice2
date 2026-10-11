@@ -11,6 +11,7 @@ import re
 from flask import (
     Flask,
     Response,
+    abort,
     flash,
     g,
     redirect,
@@ -44,6 +45,7 @@ from regions import REGIONS, apply_region, resolve_region
 from entity_types import ENTITY_TYPES, entity_type_label, resolve_entity_type
 from seed import seed_if_empty
 from hq_settings import load_hq_settings, save_hq_settings
+from periods import load_declared_periods, save_declared_period
 from corporation_master import (
     MASTER_JSON,
     contact_emails,
@@ -102,6 +104,8 @@ def create_app():
                 conn.exec_driver_sql("ALTER TABLE trainings ADD COLUMN learners TEXT DEFAULT ''")
             if "learner_count" not in train_cols:
                 conn.exec_driver_sql("ALTER TABLE trainings ADD COLUMN learner_count INTEGER DEFAULT 0")
+            if "session_no" not in train_cols:
+                conn.exec_driver_sql("ALTER TABLE trainings ADD COLUMN session_no INTEGER DEFAULT 0")
             if "title_en" not in train_cols:
                 conn.exec_driver_sql("ALTER TABLE trainings ADD COLUMN title_en VARCHAR(300) DEFAULT ''")
                 conn.exec_driver_sql("UPDATE trainings SET title_en = title WHERE title_en IS NULL OR title_en = ''")
@@ -278,7 +282,84 @@ def create_app():
 
     # ---------- helpers ----------
     def half_from_date(d: date) -> int:
+        if not d:
+            return 0
         return 1 if d.month <= 6 else 2
+
+    def parse_period_pair(year, half):
+        try:
+            year = int(year)
+            half = int(half)
+        except (TypeError, ValueError):
+            abort(404)
+        if year < 2000 or year > 2100 or half not in (1, 2):
+            abort(404)
+        return year, half
+
+    def half_bounds(year, half):
+        if half == 1:
+            return date(year, 1, 1), date(year, 6, 30)
+        return date(year, 7, 1), date(year, 12, 31)
+
+    def default_dates_for_half(year, half):
+        start, end = half_bounds(year, half)
+        today = date.today()
+        if start <= today <= end:
+            return today, today
+        return start, start
+
+    def period_label(year, half):
+        return t("period_title").replace("{year}", str(year)).replace("{half}", t(f"half_{half}_short"))
+
+    def invoice_list_url(row, **kwargs):
+        if row and getattr(row, "year", 0) and getattr(row, "half", 0) in (1, 2):
+            return url_for("invoices_period", year=row.year, half=row.half, **kwargs)
+        return url_for("invoices", **kwargs)
+
+    def period_ctx(year, half, kind):
+        year, half = parse_period_pair(year, half)
+        label = period_label(year, half)
+        admin = current_user() and current_user().role == "admin"
+        if kind == "trainings":
+            hub_url = url_for("trainings")
+            other_url = url_for("invoices_period", year=year, half=half) if admin else None
+            other_label = t("period_goto_invoices")
+            page_label = t("trainings")
+        else:
+            hub_url = url_for("invoices")
+            other_url = url_for("trainings_period", year=year, half=half) if admin else None
+            other_label = t("period_goto_trainings")
+            page_label = t("invoices") if (current_user() and current_user().role == "admin") else t("inbox")
+        return {
+            "period": {"year": year, "half": half, "label": label},
+            "hub_url": hub_url,
+            "other_url": other_url,
+            "other_label": other_label,
+            "page_label": page_label,
+        }
+
+    def training_in_period(row, year, half):
+        start = getattr(row, "start_date", None)
+        return bool(start and start.year == year and half_from_date(start) == half)
+
+    @app.context_processor
+    def inject_period_helpers():
+        return {"invoice_list_url": invoice_list_url, "period_label": period_label}
+
+    SESSION_RE = re.compile(r"(\d+)\s*차")
+
+    def infer_session(*texts):
+        for text in texts:
+            found = SESSION_RE.search(str(text or ""))
+            if found:
+                return max(int(found.group(1)), 0)
+        return 0
+
+    def training_session(row):
+        n = int(getattr(row, "session_no", 0) or 0)
+        if n:
+            return n
+        return infer_session(getattr(row, "title", ""), getattr(row, "title_en", ""))
 
     def next_invoice_no(db, year: int, half: int):
         last = (
@@ -587,12 +668,14 @@ def create_app():
             amount_krw=qty * training.unit_price_krw,
         )
 
-    def filtered_invoices(db, user):
+    def filtered_invoices(db, user, year=None, half=None):
         q = db.query(Invoice)
         if user.role != "admin":
             q = q.filter(Invoice.subsidiary_id == user.subsidiary_id)
-        year = request.args.get("year", type=int)
-        half = request.args.get("half", type=int)
+        if year is None:
+            year = request.args.get("year", type=int)
+        if half is None:
+            half = request.args.get("half", type=int)
         status = request.args.get("status", "").strip()
         code = request.args.get("subsidiary", "").strip()
         qtext = request.args.get("q", "").strip()
@@ -780,13 +863,22 @@ def create_app():
             half = half_from_date(date.today())
         stats = dashboard_stats(db, user, year, half)
         years = [y for y in range(date.today().year - 3, date.today().year + 2)]
+        if half in (1, 2):
+            pstart, pend = half_bounds(year, half)
+            training_count = (
+                db.query(Training)
+                .filter(Training.start_date >= pstart, Training.start_date <= pend)
+                .count()
+            )
+        else:
+            training_count = db.query(Training).count()
         return render_template(
             "dashboard.html",
             stats=stats,
             year=year,
             half=half,
             years=years,
-            training_count=db.query(Training).count(),
+            training_count=training_count,
             sub_count=db.query(Subsidiary).count(),
         )
 
@@ -1319,17 +1411,183 @@ def create_app():
         return render_template("profile.html", row=row)
 
     # ---------- trainings ----------
+    def issued_training_id_set(db, training_ids=None):
+        item_q = (
+            db.query(InvoiceItem.training_id)
+            .join(Invoice)
+            .filter(Invoice.status != "draft", InvoiceItem.training_id.isnot(None))
+        )
+        header_q = db.query(Invoice.training_id).filter(
+            Invoice.status != "draft", Invoice.training_id.isnot(None)
+        )
+        if training_ids:
+            item_q = item_q.filter(InvoiceItem.training_id.in_(training_ids))
+            header_q = header_q.filter(Invoice.training_id.in_(training_ids))
+        out = {row[0] for row in item_q.all() if row[0]}
+        out.update(row[0] for row in header_q.all() if row[0])
+        return out
+
+    def training_period_meta(row):
+        start = row.start_date
+        return {
+            "year": start.year if start else 0,
+            "half": half_from_date(start) if start else 0,
+            "session": training_session(row),
+        }
+
+    def training_group_label(meta, year=None, half=None):
+        bits = []
+        use_year = year if year else meta.get("year")
+        use_half = half if half else meta.get("half")
+        if use_year:
+            bits.append(str(use_year))
+        if use_half:
+            bits.append(t(f"half_{use_half}_short"))
+        s = meta.get("session") or 0
+        if s:
+            bits.append(t("session_n").replace("{n}", str(s)))
+        return " · ".join(bits) if bits else "-"
+
+    def trainings_for_period(db, year, half):
+        start, end = half_bounds(year, half)
+        return (
+            db.query(Training)
+            .filter(Training.start_date >= start, Training.start_date <= end)
+            .order_by(Training.start_date.desc(), Training.id.desc())
+            .all()
+        )
+
+    def period_hub_years(db, user):
+        years = {date.today().year}
+        for start, in db.query(Training.start_date).all():
+            if start:
+                years.add(start.year)
+        inv_q = db.query(Invoice.year)
+        if user.role != "admin":
+            inv_q = inv_q.filter(Invoice.subsidiary_id == user.subsidiary_id)
+        for (y,) in inv_q.all():
+            if y:
+                years.add(int(y))
+        years.update(y for y, _h in load_declared_periods())
+        return sorted(years, reverse=True)
+
+    def period_card_stats(db, user, year, half):
+        trains = trainings_for_period(db, year, half)
+        inv_q = db.query(Invoice).filter(Invoice.year == year, Invoice.half == half)
+        if user.role != "admin":
+            inv_q = inv_q.filter(Invoice.subsidiary_id == user.subsidiary_id)
+        return {
+            "training_count": len(trains),
+            "learner_count": sum(training_headcount(tr) for tr in trains),
+            "invoice_count": inv_q.count(),
+        }
+
+    def unassigned_invoice_count(db, user):
+        q = db.query(Invoice).filter(or_(Invoice.year < 2000, ~Invoice.half.in_([1, 2])))
+        if user.role != "admin":
+            q = q.filter(Invoice.subsidiary_id == user.subsidiary_id)
+        return q.count()
+
+    def render_period_hub(kind):
+        db = Session()
+        user = current_user()
+        year_groups = []
+        for year in period_hub_years(db, user):
+            cards = []
+            for half in (1, 2):
+                stats = period_card_stats(db, user, year, half)
+                cards.append(
+                    {
+                        "half": half,
+                        "label": period_label(year, half),
+                        "url": url_for("trainings_period" if kind == "trainings" else "invoices_period", year=year, half=half),
+                        "empty": stats["training_count"] == 0 and stats["invoice_count"] == 0,
+                        **stats,
+                    }
+                )
+            year_groups.append((year, cards))
+        return render_template(
+            "periods/hub.html",
+            kind=kind,
+            page_label=t("trainings") if kind == "trainings" else (t("invoices") if user.role == "admin" else t("inbox")),
+            hub_help=t("period_hub_help_trainings" if kind == "trainings" else "period_hub_help_invoices"),
+            year_groups=year_groups,
+            unassigned_count=unassigned_invoice_count(db, user),
+            default_year=date.today().year,
+        )
+
+    def period_participation(db, trainings):
+        subs = {row.code.upper(): row for row in db.query(Subsidiary).all()}
+        bucket = {}
+        for tr in trainings:
+            counts = entity_headcount_map(tr)
+            for code, n in counts.items():
+                item = bucket.setdefault(code, {"code": code, "name": "", "learners": 0, "programs": 0})
+                sub = subs.get(code)
+                item["name"] = (sub.name_en or sub.name_ko or code) if sub else code
+                item["learners"] += n
+                item["programs"] += 1
+        return sorted(bucket.values(), key=lambda row: row["code"])
+
     @app.route("/trainings")
     @admin_required
     def trainings():
+        return render_period_hub("trainings")
+
+    @app.route("/trainings/<int:year>/h<int:half>")
+    @admin_required
+    def trainings_period(year, half):
+        year, half = parse_period_pair(year, half)
         db = Session()
-        rows = db.query(Training).order_by(Training.start_date.desc(), Training.id.desc()).all()
-        learner_counts = {row.id: training_headcount(row) for row in rows}
+        rows = trainings_for_period(db, year, half)
+        issued_ids = issued_training_id_set(db, [row.id for row in rows])
+        session_f = request.args.get("session", "").strip()
+        usage = (request.args.get("usage") or "all").strip()
+        if usage not in ("open", "issued", "all"):
+            usage = "all"
+        metas = {row.id: training_period_meta(row) for row in rows}
+        sessions = sorted({meta["session"] for meta in metas.values() if meta["session"]})
+        filtered = []
+        for row in rows:
+            meta = metas[row.id]
+            if session_f and str(meta["session"]) != session_f:
+                continue
+            used = row.id in issued_ids
+            if usage == "open" and used:
+                continue
+            if usage == "issued" and not used:
+                continue
+            filtered.append(row)
+        filtered.sort(
+            key=lambda row: (
+                metas[row.id]["session"],
+                row.start_date or date.min,
+                row.id,
+            ),
+            reverse=True,
+        )
+        groups = []
+        current = None
+        for row in filtered:
+            meta = metas[row.id]
+            key = meta["session"]
+            if not current or current["key"] != key:
+                current = {"key": key, "meta": meta, "label": training_group_label(meta, year, half), "rows": []}
+                groups.append(current)
+            current["rows"].append(row)
         extras = training_form_extras(db)
+        ctx = period_ctx(year, half, "trainings")
         return render_template(
             "trainings/list.html",
-            rows=rows,
-            learner_counts=learner_counts,
+            rows=filtered,
+            groups=groups,
+            metas=metas,
+            issued_ids=issued_ids,
+            learner_counts={row.id: training_headcount(row) for row in filtered},
+            sessions=sessions,
+            filters={"session": session_f, "usage": usage},
+            participation=period_participation(db, rows),
+            **ctx,
             **extras,
         )
 
@@ -1341,6 +1599,11 @@ def create_app():
         row.instructor = (form.get("instructor") or "").strip()
         row.unit_price_krw = _as_int(form.get("unit_price_krw"))
         row.learners = (form.get("learners") or "").strip()
+        raw_session = form.get("session_no")
+        if raw_session in (None, ""):
+            row.session_no = infer_session(row.title, row.title_en)
+        else:
+            row.session_no = max(_as_int(raw_session, default=0), 0)
         raw_count = form.get("learner_count")
         if raw_count in (None, ""):
             grouped, unknown = parse_training_learners(row.learners)
@@ -1348,6 +1611,11 @@ def create_app():
         else:
             row.learner_count = max(_as_int(raw_count, default=0), 0)
         row.updated_at = utcnow()
+        return row
+
+    def assert_training_period(row, year, half):
+        if not training_in_period(row, year, half):
+            raise ValueError("period")
 
     def training_headcount(training):
         n = int(getattr(training, "learner_count", 0) or 0)
@@ -1530,6 +1798,7 @@ def create_app():
             "fx_rate": f"{float(rate):.2f}" if rate not in (None, "") else "",
             "fx_rate_date": (rate_date or date.today()).strftime("%Y-%m-%d") if hasattr(rate_date, "strftime") else str(rate_date or date.today())[:10],
             "learner_count_value": training_headcount(row) if row else "",
+            "session_no_value": training_session(row) if row else "",
         }
 
     def parse_bulk_fx(form):
@@ -1702,32 +1971,56 @@ def create_app():
         if unknown:
             flash(f"{t('auto_invoice_unknown')}: {', '.join(unknown)}", "warning")
 
+    def training_form_dates(year, half, row=None):
+        start, end = half_bounds(year, half)
+        default_start, default_end = default_dates_for_half(year, half)
+        return {
+            "period_start": start.strftime("%Y-%m-%d"),
+            "period_end": end.strftime("%Y-%m-%d"),
+            "default_start": (row.start_date.strftime("%Y-%m-%d") if row and row.start_date else default_start.strftime("%Y-%m-%d")),
+            "default_end": (row.end_date.strftime("%Y-%m-%d") if row and row.end_date else default_end.strftime("%Y-%m-%d")),
+        }
+
     @app.route("/trainings/new", methods=["GET", "POST"])
     @admin_required
     def training_new():
+        year = date.today().year
+        half = half_from_date(date.today()) or 1
+        return redirect(url_for("training_new_period", year=year, half=half))
+
+    @app.route("/trainings/<int:year>/h<int:half>/new", methods=["GET", "POST"])
+    @admin_required
+    def training_new_period(year, half):
+        year, half = parse_period_pair(year, half)
         db = Session()
+        ctx = period_ctx(year, half, "trainings")
         if request.method == "POST":
             try:
                 row = Training(
                     title="",
                     title_en="",
-                    start_date=date.today(),
-                    end_date=date.today(),
+                    start_date=default_dates_for_half(year, half)[0],
+                    end_date=default_dates_for_half(year, half)[1],
                     instructor="",
                     unit_price_krw=0,
                 )
                 save_training(row, request.form)
+                assert_training_period(row, year, half)
                 db.add(row)
                 db.flush()
                 log_action(db, "training", row.title, "CREATE", row.instructor)
                 db.commit()
                 flash(t("saved"), "success")
-                return redirect(url_for("trainings"))
+                return redirect(url_for("trainings_period", year=year, half=half))
+            except ValueError:
+                db.rollback()
+                flash(t("training_wrong_half"), "danger")
             except Exception:
                 db.rollback()
                 flash(t("required"), "danger")
         extras = training_form_extras(db)
-        return render_template("trainings/form.html", row=None, **extras)
+        extras.update(training_form_dates(year, half))
+        return render_template("trainings/form.html", row=None, **ctx, **extras)
 
     @app.route("/trainings/<int:tid>/edit", methods=["GET", "POST"])
     @admin_required
@@ -1736,25 +2029,48 @@ def create_app():
         row = db.get(Training, tid)
         if not row:
             return redirect(url_for("trainings"))
+        year = row.start_date.year if row.start_date else date.today().year
+        half = half_from_date(row.start_date) or 1
+        return redirect(url_for("training_edit_period", year=year, half=half, tid=tid))
+
+    @app.route("/trainings/<int:year>/h<int:half>/<int:tid>/edit", methods=["GET", "POST"])
+    @admin_required
+    def training_edit_period(year, half, tid):
+        year, half = parse_period_pair(year, half)
+        db = Session()
+        row = db.get(Training, tid)
+        if not row or not training_in_period(row, year, half):
+            flash(t("not_found"), "danger")
+            return redirect(url_for("trainings_period", year=year, half=half))
+        ctx = period_ctx(year, half, "trainings")
         if request.method == "POST":
             try:
                 save_training(row, request.form)
+                assert_training_period(row, year, half)
                 log_action(db, "training", row.id, "UPDATE", row.title)
                 db.commit()
                 flash(t("saved"), "success")
-                return redirect(url_for("trainings"))
+                return redirect(url_for("trainings_period", year=year, half=half))
+            except ValueError:
+                db.rollback()
+                flash(t("training_wrong_half"), "danger")
             except Exception:
                 db.rollback()
                 flash(t("required"), "danger")
         extras = training_form_extras(db, row)
-        return render_template("trainings/form.html", row=row, **extras)
+        extras.update(training_form_dates(year, half, row))
+        return render_template("trainings/form.html", row=row, **ctx, **extras)
 
     @app.route("/trainings/<int:tid>/delete", methods=["POST"])
     @admin_required
     def training_delete(tid):
         db = Session()
         row = db.get(Training, tid)
+        year = request.form.get("year", type=int)
+        half = request.form.get("half", type=int)
         if row:
+            year = year or (row.start_date.year if row.start_date else date.today().year)
+            half = half or half_from_date(row.start_date) or 1
             linked = (
                 db.query(Invoice).filter_by(training_id=tid).count()
                 or db.query(InvoiceItem).filter_by(training_id=tid).count()
@@ -1765,40 +2081,123 @@ def create_app():
                 db.delete(row)
                 db.commit()
                 flash(t("saved"), "success")
+        if year and half in (1, 2):
+            return redirect(url_for("trainings_period", year=year, half=half))
         return redirect(url_for("trainings"))
 
     @app.route("/trainings/bulk-invoices", methods=["POST"])
     @admin_required
     def training_bulk_invoices():
         db = Session()
+        year = request.form.get("year", type=int)
+        half = request.form.get("half", type=int)
+        back = url_for("trainings_period", year=year, half=half) if year and half in (1, 2) else url_for("trainings")
         ids = []
         for value in request.form.getlist("training_ids"):
             if str(value).isdigit():
                 ids.append(int(value))
         if not ids:
             flash(t("bulk_need_training"), "danger")
-            return redirect(url_for("trainings"))
+            return redirect(back)
         rows = (
             db.query(Training)
             .filter(Training.id.in_(ids))
             .order_by(Training.start_date.asc(), Training.id.asc())
             .all()
         )
+        if year and half in (1, 2):
+            rows = [row for row in rows if training_in_period(row, year, half)]
         try:
             result = bulk_invoices_from_trainings(db, rows, request.form)
             if result is None:
                 db.rollback()
                 flash_auto_invoices(result)
-                return redirect(url_for("trainings"))
+                return redirect(back)
             db.commit()
             flash_auto_invoices(result)
             created, updated, *_rest = result
             if created or updated:
+                if year and half in (1, 2):
+                    return redirect(url_for("invoices_period", year=year, half=half))
                 return redirect(url_for("invoices"))
         except Exception:
             db.rollback()
             flash(t("required"), "danger")
-        return redirect(url_for("trainings"))
+        return redirect(back)
+
+    @app.route("/periods", methods=["POST"])
+    @admin_required
+    def period_create():
+        year = request.form.get("year", type=int)
+        half = request.form.get("half", type=int)
+        nxt = (request.form.get("next") or "trainings").strip()
+        try:
+            year, half = parse_period_pair(year, half)
+        except Exception:
+            flash(t("required"), "danger")
+            return redirect(url_for("trainings"))
+        created = save_declared_period(year, half)
+        flash(t("period_created") if created else t("period_exists"), "success" if created else "warning")
+        if nxt == "invoices":
+            return redirect(url_for("invoices_period", year=year, half=half))
+        return redirect(url_for("trainings_period", year=year, half=half))
+
+    @app.route("/trainings/learners-template")
+    @admin_required
+    def training_learners_template():
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "learners"
+        ws.append(["법인코드", "학습자 이름", "이메일"])
+        ws.append(["02VN01", "Nguyen Van A", "nguyen@company.com"])
+        bio = BytesIO()
+        wb.save(bio)
+        bio.seek(0)
+        return send_file(
+            bio,
+            as_attachment=True,
+            download_name="training_learners_template.xlsx",
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    @app.route("/trainings/<int:year>/h<int:half>/<int:tid>/learners", methods=["POST"])
+    @admin_required
+    def training_learners_upload(year, half, tid):
+        year, half = parse_period_pair(year, half)
+        db = Session()
+        row = db.get(Training, tid)
+        back = url_for("training_edit_period", year=year, half=half, tid=tid)
+        if not row or not training_in_period(row, year, half):
+            flash(t("not_found"), "danger")
+            return redirect(url_for("trainings_period", year=year, half=half))
+        f = request.files.get("file")
+        if not f or not allowed_file(f.filename):
+            flash(t("invalid_file"), "danger")
+            return redirect(back)
+        try:
+            table = load_table(f)
+        except Exception:
+            flash(t("upload_fail"), "danger")
+            return redirect(back)
+        existing = [ln for ln in str(row.learners or "").splitlines() if ln.strip()]
+        added = 0
+        for item in table:
+            code = str(norm_key(item, "법인코드", "code", "subsidiary_code")).strip().upper()
+            name = str(norm_key(item, "학습자 이름", "learner_name", "name")).strip()
+            email = str(norm_key(item, "이메일", "email")).strip()
+            if not (code or name):
+                continue
+            bits = [part for part in (code, name, email) if part]
+            existing.append(", ".join(bits))
+            added += 1
+        row.learners = "\n".join(existing)
+        grouped, unknown = parse_training_learners(row.learners)
+        row.learner_count = sum(len(people) for people in grouped.values()) + len(unknown)
+        row.updated_at = utcnow()
+        log_action(db, "training", row.id, "LEARNERS_UPLOAD", f"added={added}")
+        db.commit()
+        flash(t("learner_excel_ok").replace("{n}", str(added)), "success")
+        return redirect(back)
 
     @app.route("/api/trainings/<int:tid>")
     @admin_required
@@ -1821,23 +2220,36 @@ def create_app():
     @app.route("/invoices")
     @login_required
     def invoices():
+        year = request.args.get("year", type=int)
+        half = request.args.get("half", type=int)
+        if year and half in (1, 2):
+            args = request.args.to_dict(flat=True)
+            args.pop("year", None)
+            args.pop("half", None)
+            return redirect(url_for("invoices_period", year=year, half=half, **args))
+        return render_period_hub("invoices")
+
+    @app.route("/invoices/<int:year>/h<int:half>")
+    @login_required
+    def invoices_period(year, half):
+        year, half = parse_period_pair(year, half)
         db = Session()
         user = current_user()
-        q = filtered_invoices(db, user)
+        q = filtered_invoices(db, user, year=year, half=half)
         rows = q.all()
-        years = sorted({i.year for i in db.query(Invoice.year).all()} | {date.today().year})
         subs = db.query(Subsidiary).order_by(Subsidiary.code).all() if user.role == "admin" else []
         extras = training_form_extras(db) if user.role == "admin" else {}
         entity_opts = subsidiary_filter_options(db) if user.role == "admin" else {}
+        ctx = period_ctx(year, half, "invoices")
         return render_template(
             "invoices/list.html",
             rows=rows,
-            years=years,
+            years=[year],
             subs=subs,
             regions=REGIONS,
             filters={
-                "year": request.args.get("year", ""),
-                "half": request.args.get("half", ""),
+                "year": str(year),
+                "half": str(half),
                 "status": request.args.get("status", ""),
                 "subsidiary": request.args.get("subsidiary", ""),
                 "q": request.args.get("q", ""),
@@ -1847,6 +2259,7 @@ def create_app():
                 "companies": entity_opts.get("companies", []),
                 "countries": entity_opts.get("countries", []),
             },
+            **ctx,
             **extras,
         )
 
@@ -2015,8 +2428,14 @@ def create_app():
         inv.instructor = ", ".join(dict.fromkeys(p["instructor"] for p in programs if p["instructor"]))
         unique_tids = list(dict.fromkeys(p["training_id"] for p in programs if p["training_id"]))
         inv.training_id = unique_tids[0] if len(unique_tids) == 1 else None
-        inv.year = inv.period_start.year
-        inv.half = half_from_date(inv.period_start)
+        force_year = form.get("year", type=int)
+        force_half = form.get("half", type=int)
+        if force_year and force_half in (1, 2):
+            inv.year = force_year
+            inv.half = force_half
+        else:
+            inv.year = inv.period_start.year
+            inv.half = half_from_date(inv.period_start)
         apply_invoice_totals(inv)
         if is_new:
             inv.invoice_no, inv.seq = next_invoice_no(db, inv.year, inv.half)
@@ -2098,6 +2517,9 @@ def create_app():
                     "period_end": tr.end_date.strftime("%Y-%m-%d"),
                     "qty": 1,
                     "learner_count": int(getattr(tr, "learner_count", 0) or 0),
+                    "year": tr.start_date.year if tr.start_date else 0,
+                    "half": half_from_date(tr.start_date) if tr.start_date else 0,
+                    "session_no": training_session(tr),
                     "counts_by_code": counts_by_code,
                     "unit_price_krw": tr.unit_price_krw,
                     "learners": "",
@@ -2109,18 +2531,27 @@ def create_app():
     @app.route("/invoices/new", methods=["GET", "POST"])
     @admin_required
     def invoice_new():
+        year = date.today().year
+        half = half_from_date(date.today()) or 1
+        return redirect(url_for("invoice_new_period", year=year, half=half))
+
+    @app.route("/invoices/<int:year>/h<int:half>/new", methods=["GET", "POST"])
+    @admin_required
+    def invoice_new_period(year, half):
+        year, half = parse_period_pair(year, half)
         db = Session()
+        ctx = period_ctx(year, half, "invoices")
         if request.method == "POST":
             try:
                 inv = Invoice(
                     invoice_no="TEMP",
-                    year=date.today().year,
-                    half=1,
+                    year=year,
+                    half=half,
                     seq=0,
                     subsidiary_id=0,
                     education_name="",
-                    period_start=date.today(),
-                    period_end=date.today(),
+                    period_start=default_dates_for_half(year, half)[0],
+                    period_end=default_dates_for_half(year, half)[1],
                     qty=1,
                     unit_price_krw=0,
                     amount_krw=0,
@@ -2131,6 +2562,8 @@ def create_app():
                     document_date=date.today(),
                 )
                 fill_invoice_from_form(db, inv, request.form, is_new=True)
+                inv.year = year
+                inv.half = half
                 log_action(db, "invoice", inv.invoice_no, "CREATE", inv.education_name)
                 db.commit()
                 flash(t("saved"), "success")
@@ -2139,7 +2572,7 @@ def create_app():
                 db.rollback()
                 flash(t("required"), "danger")
         subs = db.query(Subsidiary).filter_by(status="active").order_by(Subsidiary.code).all()
-        trains = db.query(Training).order_by(Training.start_date.desc()).all()
+        trains = trainings_for_period(db, year, half)
         extras = training_form_extras(db)
         entity_opts = subsidiary_filter_options(db)
         return render_template(
@@ -2155,6 +2588,7 @@ def create_app():
             regions=REGIONS,
             entity_companies=entity_opts["companies"],
             entity_countries=entity_opts["countries"],
+            **ctx,
         )
 
     @app.route("/invoices/<int:iid>/edit", methods=["GET", "POST"])
@@ -2165,9 +2599,14 @@ def create_app():
         if not row:
             flash(t("not_found"), "danger")
             return redirect(url_for("invoices"))
+        year = row.year if row.year else date.today().year
+        half = row.half if row.half in (1, 2) else (half_from_date(row.period_start) or 1)
+        ctx = period_ctx(year, half, "invoices")
         if request.method == "POST":
             try:
                 fill_invoice_from_form(db, row, request.form, is_new=False)
+                row.year = year
+                row.half = half
                 if row.status != "draft":
                     rebuild_pdf(row)
                 log_action(db, "invoice", row.invoice_no, "UPDATE", f"status={row.status}")
@@ -2178,7 +2617,7 @@ def create_app():
                 db.rollback()
                 flash(t("required"), "danger")
         subs = db.query(Subsidiary).order_by(Subsidiary.code).all()
-        trains = db.query(Training).order_by(Training.start_date.desc()).all()
+        trains = trainings_for_period(db, year, half)
         if attach_training_learners(db, row):
             db.commit()
         entity_opts = subsidiary_filter_options(db)
@@ -2193,6 +2632,7 @@ def create_app():
             regions=REGIONS,
             entity_companies=entity_opts["companies"],
             entity_countries=entity_opts["countries"],
+            **ctx,
         )
 
     @app.route("/invoices/<int:iid>")
@@ -2273,11 +2713,12 @@ def create_app():
         if not row:
             flash(t("not_found"), "danger")
             return redirect(url_for("invoices"))
+        back = invoice_list_url(row)
         paths = delete_invoice_row(db, row)
         db.commit()
         unlink_paths(paths)
         flash(t("invoice_deleted"), "success")
-        return redirect(url_for("invoices"))
+        return redirect(back)
 
     @app.route("/invoices/<int:iid>/compose/<kind>", methods=["GET"])
     @admin_required
@@ -2753,9 +3194,16 @@ def create_app():
     def invoice_upload():
         db = Session()
         f = request.files.get("file")
+        period_year = request.form.get("year", type=int)
+        period_half = request.form.get("half", type=int)
+        back = (
+            url_for("invoices_period", year=period_year, half=period_half)
+            if period_year and period_half in (1, 2)
+            else url_for("invoices")
+        )
         if not f or not allowed_file(f.filename):
             flash(t("invalid_file"), "danger")
-            return redirect(url_for("invoices"))
+            return redirect(back)
         currency = (request.form.get("currency") or "USD").upper()
         if currency not in ("USD", "EUR"):
             currency = "USD"
@@ -2763,12 +3211,12 @@ def create_app():
         rate_date = _as_date(request.form.get("rate_date") or date.today())
         if rate <= 0:
             flash(t("required"), "danger")
-            return redirect(url_for("invoices"))
+            return redirect(back)
         try:
             rows = load_table(f)
         except Exception:
             flash(t("upload_fail"), "danger")
-            return redirect(url_for("invoices"))
+            return redirect(back)
 
         groups = {}
         errors = 0
@@ -2807,6 +3255,9 @@ def create_app():
             period_end = _as_date(pe)
             year = period_start.year
             half = half_from_date(period_start)
+            if period_year and period_half in (1, 2) and (year != period_year or half != period_half):
+                errors += 1
+                continue
             inv_no, seq = next_invoice_no(db, year, half)
             inv = Invoice(
                 invoice_no=inv_no,
@@ -2847,7 +3298,7 @@ def create_app():
             created += 1
         db.commit()
         flash(f"{t('upload_ok')} · {t('created_n')} {created} / {t('errors')} {errors}", "success")
-        return redirect(url_for("invoices"))
+        return redirect(back)
 
     @app.route("/collections")
     @admin_required

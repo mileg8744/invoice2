@@ -1,9 +1,12 @@
 {% extends "base.html" %}
-{% block page_title %}{% if row %}{{ t('invoice_edit') }}{% else %}{{ t('create_invoice') }}{% endif %}{% endblock %}
+{% block page_title %}{{ period.label }} | {% if row %}{{ t('invoice_edit') }}{% else %}{{ t('create_invoice') }}{% endif %}{% endblock %}
 {% block content %}
+{% include "periods/_banner.html" %}
 <div class="card-panel">
   <p class="muted">{{ t('seq_rule') }} · {{ t('half_auto') }} · {{ t('vat_note') }}</p>
   <form method="post" id="invoiceForm">
+    <input type="hidden" name="year" value="{{ period.year }}">
+    <input type="hidden" name="half" value="{{ period.half }}">
     <div class="row g-3">
       <div class="col-12" data-entity-picker>
         <label class="form-label">{{ t('select_subsidiary') }}</label>
@@ -96,7 +99,7 @@
     </div>
     <div class="mt-4 d-flex gap-2">
       <button class="btn btn-navy" type="submit">{{ t('save') }}</button>
-      <a class="btn btn-ghost" href="{{ url_for('invoices') }}">{{ t('cancel') }}</a>
+      <a class="btn btn-ghost" href="{{ url_for('invoices_period', year=period.year, half=period.half) }}">{{ t('cancel') }}</a>
     </div>
   </form>
 </div>
@@ -246,7 +249,16 @@
 
   function catalogLabel(tr) {
     const krw = Number(tr.unit_price_krw || 0).toLocaleString();
-    return `${tr.education_name} · ${tr.period_start} ~ ${tr.period_end} · KRW ${krw}`;
+    const halves = {
+      1: {{ t('half_1_short') | tojson }},
+      2: {{ t('half_2_short') | tojson }},
+    };
+    const bits = [];
+    if (tr.year) bits.push(String(tr.year));
+    if (tr.half) bits.push(halves[tr.half] || '');
+    if (tr.session_no) bits.push({{ t('session_n') | tojson }}.replace('{n}', String(tr.session_no)));
+    const prefix = bits.filter(Boolean).join(' · ');
+    return `${prefix ? prefix + ' · ' : ''}${tr.education_name} · ${tr.period_start} ~ ${tr.period_end} · KRW ${krw}`;
   }
 
   function refreshCatalog() {

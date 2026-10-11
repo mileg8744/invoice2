@@ -76,6 +76,7 @@ class Training(Base):
     instructor: Mapped[str] = mapped_column(String(100), nullable=False)
     unit_price_krw: Mapped[int] = mapped_column(Integer, nullable=False)
     learner_count: Mapped[int] = mapped_column(Integer, default=0)
+    session_no: Mapped[int] = mapped_column(Integer, default=0)
     learners: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)

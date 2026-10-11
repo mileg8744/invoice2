@@ -1,0 +1,12 @@
+<div class="period-banner">
+  <div>
+    <a class="period-back" href="{{ hub_url }}">← {{ t('period_back') }}</a>
+    <div class="period-banner-title">{{ period.label }} | {{ page_label }}</div>
+    <p class="muted mb-0">{{ t('period_scope_help') }}</p>
+  </div>
+  <div class="toolbar-right">
+    {% if other_url %}
+    <a class="btn btn-outline-navy" href="{{ other_url }}">{{ other_label }} →</a>
+    {% endif %}
+  </div>
+</div>

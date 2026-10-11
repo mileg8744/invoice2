@@ -1,6 +1,7 @@
 {% extends "base.html" %}
-{% block page_title %}{% if current_user.role == 'admin' %}{{ t('invoices') }}{% else %}{{ t('inbox') }}{% endif %}{% endblock %}
+{% block page_title %}{{ period.label }} | {% if current_user.role == 'admin' %}{{ t('invoices') }}{% else %}{{ t('inbox') }}{% endif %}{% endblock %}
 {% block content %}
+{% include "periods/_banner.html" %}
 {% if current_user.role == 'admin' and not mail_live %}
 <div class="alert alert-warning">{{ t('mail_live_off') }} <a href="{{ url_for('hq_settings') }}">{{ t('hq_settings') }}</a></div>
 {% endif %}
@@ -12,11 +13,13 @@
     <form class="d-inline" method="post" action="{{ url_for('invoices_hq_copy', **request.args) }}" onsubmit="return confirm('{{ t('confirm_hq_bulk') }}');">
       <button class="btn btn-outline-navy" type="submit"><i class="bi bi-envelope"></i> {{ t('hq_bulk_send') }}</button>
     </form>
-    <a class="btn btn-navy" href="{{ url_for('invoice_new') }}"><i class="bi bi-plus"></i> {{ t('create_invoice') }}</a>
+    <a class="btn btn-navy" href="{{ url_for('invoice_new_period', year=period.year, half=period.half) }}"><i class="bi bi-plus"></i> {{ t('create_invoice') }}</a>
   </div>
 </div>
 <div class="card-panel mb-3">
   <form class="upload-inline wrap" method="post" action="{{ url_for('invoice_upload') }}" enctype="multipart/form-data">
+    <input type="hidden" name="year" value="{{ period.year }}">
+    <input type="hidden" name="half" value="{{ period.half }}">
     <strong>{{ t('bulk_invoice') }}</strong>
     <span class="muted">{{ t('group_note') }}</span>
     <select class="form-select" name="currency" style="max-width:110px">
@@ -32,17 +35,6 @@
 {% endif %}
 
 <form class="filter-bar" method="get" data-entity-picker>
-  <select class="form-select" name="year">
-    <option value="">{{ t('year') }}</option>
-    {% for y in years %}
-    <option value="{{ y }}" {% if filters.year == y|string %}selected{% endif %}>{{ y }}</option>
-    {% endfor %}
-  </select>
-  <select class="form-select" name="half">
-    <option value="">{{ t('half') }}</option>
-    <option value="1" {% if filters.half == '1' %}selected{% endif %}>{{ t('half_1') }}</option>
-    <option value="2" {% if filters.half == '2' %}selected{% endif %}>{{ t('half_2') }}</option>
-  </select>
   <select class="form-select" name="status">
     <option value="">{{ t('filter_all') }}</option>
     {% for s in ['draft','issued','acknowledged','paid'] %}
@@ -83,8 +75,8 @@
   {% endif %}
   <input class="form-control" name="q" value="{{ filters.q }}" placeholder="{{ t('search') }}">
   <button class="btn btn-navy" type="submit">{{ t('filter') }}</button>
-  <a class="btn btn-ghost" href="{{ url_for('invoices') }}">{{ t('reset') }}</a>
-  <a class="btn btn-outline-navy" href="{{ url_for('invoices_export', **request.args) }}">{{ t('export_csv') }}</a>
+  <a class="btn btn-ghost" href="{{ url_for('invoices_period', year=period.year, half=period.half) }}">{{ t('reset') }}</a>
+  <a class="btn btn-outline-navy" href="{{ url_for('invoices_export', year=period.year, half=period.half, **request.args) }}">{{ t('export_csv') }}</a>
 </form>
 {% if current_user.role == 'admin' %}
 <p class="muted mb-3">{{ t('hq_bulk_help') }} · {{ t('hq_copy_to') }}: <b>{{ hq_copy_email }}</b></p>

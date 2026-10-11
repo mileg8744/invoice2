@@ -58,12 +58,12 @@
     <div class="section-head">
       <h2>{{ t('status') }}</h2>
       {% if current_user.role == 'admin' %}
-      <a class="btn btn-sm btn-navy" href="{{ url_for('invoice_new') }}">{{ t('quick_create') }}</a>
+      <a class="btn btn-sm btn-navy" href="{% if half %}{{ url_for('invoice_new_period', year=year, half=half) }}{% else %}{{ url_for('invoice_new') }}{% endif %}">{{ t('quick_create') }}</a>
       {% endif %}
     </div>
     <div class="status-tiles">
       {% for key in ['draft','issued','acknowledged','paid'] %}
-      <a class="tile s-{{ key }}" href="{{ url_for('invoices', year=year, half=half, status=key) }}">
+      <a class="tile s-{{ key }}" href="{% if half %}{{ url_for('invoices_period', year=year, half=half, status=key) }}{% else %}{{ url_for('invoices') }}{% endif %}">
         <b>{{ stats.status_counts[key] }}</b>
         <span>{{ t('status_' + key) }}</span>
       </a>

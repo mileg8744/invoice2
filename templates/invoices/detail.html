@@ -31,7 +31,7 @@
       <button class="btn btn-navy" type="submit">{{ t('acknowledge') }}</button>
     </form>
     {% endif %}
-    <a class="btn btn-ghost" href="{{ url_for('invoices') }}">{{ t('back') }}</a>
+    <a class="btn btn-ghost" href="{{ invoice_list_url(row) }}">{{ t('back') }}</a>
   </div>
 </div>
 
