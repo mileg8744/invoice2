@@ -219,6 +219,10 @@
             <input class="form-control item-unit js-krw" type="text" inputmode="numeric" name="item_unit_price_krw" value="${Number(unit || 0).toLocaleString('en-US')}" required>
           </div>
           <div class="col-md-2">
+            <label class="form-label">{{ t('unit_us') }}</label>
+            <input class="form-control item-unit-usd" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00">
+          </div>
+          <div class="col-md-2">
             <label class="form-label">{{ t('amount_krw') }}</label>
             <div class="form-control-plaintext fw-bold item-line-krw">0</div>
           </div>
@@ -325,14 +329,36 @@
     return Number(String(value || '').replace(/,/g, '')) || 0;
   }
 
+  function applyUsdToKrw(el) {
+    const rate = Number(document.getElementById('exchange_rate').value || 0);
+    const usdEl = el.querySelector('.item-unit-usd');
+    const krwEl = el.querySelector('.item-unit');
+    if (!usdEl || !krwEl || !rate) return;
+    const usd = Number(usdEl.value || 0);
+    if (!(usd >= 0)) return;
+    const krw = Math.round(usd * rate);
+    krwEl.value = window.pguFormatKrw ? window.pguFormatKrw(krw) : String(krw);
+  }
+
   function bindLine(el) {
     el.querySelector('.btn-remove').addEventListener('click', () => {
       el.remove();
       recalc();
     });
     el.querySelectorAll('input, textarea').forEach(inp => {
-      inp.addEventListener('input', recalc);
-      inp.addEventListener('change', recalc);
+      if (inp.classList.contains('item-unit-usd')) {
+        inp.addEventListener('input', () => {
+          applyUsdToKrw(el);
+          recalc('usd');
+        });
+        inp.addEventListener('change', () => {
+          applyUsdToKrw(el);
+          recalc('usd');
+        });
+        return;
+      }
+      inp.addEventListener('input', () => recalc());
+      inp.addEventListener('change', () => recalc());
     });
     if (window.pguBindKrw) window.pguBindKrw(el);
   }
@@ -363,7 +389,7 @@
     document.getElementById(id).addEventListener('change', recalc);
   });
 
-  function recalc() {
+  function recalc(source) {
     const rate = Number(document.getElementById('exchange_rate').value || 0);
     const currency = document.getElementById('currency').value || 'USD';
     const emptyFx = {{ t('fx_need_rate') | tojson }};
@@ -382,6 +408,10 @@
         qtyInput.value = qty;
       }
       const unit = parseKrw(el.querySelector('.item-unit').value);
+      const usdEl = el.querySelector('.item-unit-usd');
+      if (usdEl && source !== 'usd') {
+        usdEl.value = rate ? moneyFx(unit).toFixed(2) : '';
+      }
       const line = qty * unit;
       el.querySelector('.item-line-krw').textContent = line.toLocaleString();
       const fxEl = el.querySelector('.item-line-fx');
