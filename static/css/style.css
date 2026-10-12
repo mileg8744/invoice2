@@ -44,8 +44,14 @@ body {
   top: 0;
   height: 100vh;
 }
-.brand { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 18px; }
-.brand-lockup { flex: 1; min-width: 0; }
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+  margin-bottom: 18px;
+}
+.brand-lockup { flex: 1; min-width: 0; padding-top: 4px; }
 .brand-ci { height: 38px; width: auto; max-width: 188px; display: block; margin-bottom: 8px; }
 .login-ci { height: 56px; max-width: 280px; margin-bottom: 16px; }
 .sidebar-hide-btn,
@@ -56,6 +62,7 @@ body {
   color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 700;
   white-space: nowrap; cursor: pointer;
 }
+.sidebar-hide-btn { align-self: flex-end; order: -1; }
 .sidebar-hide-btn:hover { background: rgba(255,255,255,.16); color: #fff; }
 .sidebar-show-btn {
   display: none; border-color: var(--line); background: var(--ice); color: var(--navy);
