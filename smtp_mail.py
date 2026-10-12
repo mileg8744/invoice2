@@ -16,6 +16,14 @@ from dotenv import load_dotenv
 log = logging.getLogger("pgu.mail")
 
 _SECRET_RE = re.compile(r"(?i)(password|passwd|pwd|secret)[=:]\s*\S+")
+_MAIL_DICT_KEYS = {
+    "MAIL_PORT": ("MAIL_PORT", "port", "PORT", "smtp_port"),
+    "MAIL_SERVER": ("MAIL_SERVER", "server", "host", "HOST", "smtp_server"),
+    "MAIL_USERNAME": ("MAIL_USERNAME", "username", "user", "USER"),
+    "MAIL_PASSWORD": ("MAIL_PASSWORD", "password", "PASSWORD"),
+    "MAIL_FROM": ("MAIL_FROM", "from", "sender", "email"),
+    "MAIL_FROM_NAME": ("MAIL_FROM_NAME", "from_name", "name", "display"),
+}
 
 
 class SmtpMailError(Exception):
@@ -28,20 +36,60 @@ def refresh_mail_env() -> None:
     load_dotenv(BASE_DIR / ".env", override=True)
 
 
-def _mail_val(name: str, default: str = "") -> str:
-    def as_text(value) -> str:
-        if value is None:
+def _mail_scalar(value) -> str:
+    if value is None or isinstance(value, bool):
+        return ""
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return str(int(value)) if value.is_integer() else ""
+    if isinstance(value, bytes):
+        try:
+            value = value.decode("utf-8")
+        except UnicodeDecodeError:
             return ""
-        return str(value).strip()
+    if isinstance(value, str):
+        return value.strip()
+    return ""
 
-    live = as_text(os.environ.get(name))
-    if live:
-        return live
+
+def _mail_from_mapping(name: str, value: dict) -> str:
+    for key in _MAIL_DICT_KEYS.get(name, (name,)):
+        if key not in value:
+            continue
+        inner = value[key]
+        if isinstance(inner, dict):
+            continue
+        text = _mail_scalar(inner)
+        if text:
+            return text
+    return ""
+
+
+def _coerce_mail_value(name: str, value) -> str:
+    if isinstance(value, dict):
+        return _mail_from_mapping(name, value)
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            text = _coerce_mail_value(name, item)
+            if text:
+                return text
+        return ""
+    return _mail_scalar(value)
+
+
+def _mail_val(name: str, default: str = "") -> str:
+    text = _coerce_mail_value(name, os.environ.get(name))
+    if text:
+        return text
     refresh_mail_env()
-    live = as_text(os.environ.get(name))
-    if live:
-        return live
-    return as_text(getattr(Config, name, default) or default)
+    text = _coerce_mail_value(name, os.environ.get(name))
+    if text:
+        return text
+    text = _coerce_mail_value(name, getattr(Config, name, None))
+    if text:
+        return text
+    return _coerce_mail_value(name, default)
 
 
 def mail_from_address() -> str:
@@ -63,16 +111,21 @@ def smtp_password() -> str:
 
 def smtp_configured() -> bool:
     try:
-        port = int(_mail_val("MAIL_PORT") or "0")
-    except ValueError:
-        port = 0
-    return bool(
-        _mail_val("MAIL_SERVER")
-        and port
-        and _mail_val("MAIL_USERNAME")
-        and smtp_password()
-        and _mail_val("MAIL_FROM")
-    )
+        try:
+            port = int(_mail_val("MAIL_PORT") or "0")
+        except (TypeError, ValueError):
+            port = 0
+        if port <= 0:
+            return False
+        return bool(
+            _mail_val("MAIL_SERVER")
+            and _mail_val("MAIL_USERNAME")
+            and smtp_password()
+            and _mail_val("MAIL_FROM")
+        )
+    except Exception:
+        log.warning("smtp_configured check failed; treating mail as not live")
+        return False
 
 
 def _build_message(
