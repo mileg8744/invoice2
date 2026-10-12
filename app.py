@@ -1863,14 +1863,6 @@ def create_app():
 
     def bulk_invoices_from_trainings(db, trainings, form):
         currency, rate, rate_date, document_date = parse_bulk_fx(form)
-        try:
-            unit_usd = float(str(form.get("unit_price_usd") or "").replace(",", "").strip() or 0)
-        except (TypeError, ValueError):
-            unit_usd = 0
-        if unit_usd > 0:
-            ref_krw = next((int(tr.unit_price_krw or 0) for tr in trainings if int(tr.unit_price_krw or 0) > 0), 0)
-            if ref_krw:
-                rate = ref_krw / unit_usd
         if rate <= 0:
             return None
         buckets = {}

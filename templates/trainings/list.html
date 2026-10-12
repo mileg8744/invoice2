@@ -46,10 +46,6 @@
       <input class="form-control" type="date" name="rate_date" value="{{ fx_rate_date }}" required>
     </label>
     <label>
-      <span>{{ t('unit_usd') }}</span>
-      <input class="form-control" type="number" step="0.01" min="0.01" name="unit_price_usd" id="fxUnitUsd" placeholder="0.00">
-    </label>
-    <label>
       <span>{{ t('issue_date') }}</span>
       <input class="form-control" type="date" name="document_date" value="{{ today }}" required>
     </label>
@@ -184,17 +180,10 @@
 
   const fxRateEl = document.getElementById("fxRate");
   const fxCurEl = document.getElementById("fxCurrency");
-  const fxUnitEl = document.getElementById("fxUnitUsd");
   const fxSummary = document.getElementById("fxLiveSummary");
   const emptyFx = {{ t('fx_need_rate') | tojson }};
-  let syncingUsd = false;
 
-  function firstCheckedUnitKrw() {
-    const box = document.querySelector(".js-training-check:checked");
-    return Number(box?.closest("tr")?.querySelector(".js-fx-cell")?.getAttribute("data-fx-krw") || 0);
-  }
-
-  function refreshTrainingFx(fromUsd) {
+  function refreshTrainingFx() {
     window.pguRefreshFxCells({
       rateEl: fxRateEl,
       currencyEl: fxCurEl,
@@ -202,12 +191,6 @@
     });
     const rate = Number((fxRateEl && fxRateEl.value) || 0);
     const currency = (fxCurEl && fxCurEl.value) || "USD";
-    const unitKrw = firstCheckedUnitKrw();
-    if (!syncingUsd && !fromUsd && fxUnitEl && unitKrw && rate) {
-      syncingUsd = true;
-      fxUnitEl.value = window.pguMoneyFx(unitKrw, rate).toFixed(2);
-      syncingUsd = false;
-    }
     if (!fxSummary) return;
     let krw = 0;
     document.querySelectorAll(".js-training-check:checked").forEach((box) => {
@@ -224,19 +207,9 @@
   }
 
   ["input", "change"].forEach((ev) => {
-    fxRateEl?.addEventListener(ev, () => refreshTrainingFx(false));
-    fxCurEl?.addEventListener(ev, () => refreshTrainingFx(false));
+    fxRateEl?.addEventListener(ev, refreshTrainingFx);
+    fxCurEl?.addEventListener(ev, refreshTrainingFx);
   });
-  fxUnitEl?.addEventListener("input", () => {
-    const unitKrw = firstCheckedUnitKrw();
-    const usd = Number(fxUnitEl.value || 0);
-    if (!syncingUsd && unitKrw && usd) {
-      syncingUsd = true;
-      fxRateEl.value = (unitKrw / usd).toFixed(2);
-      syncingUsd = false;
-    }
-    refreshTrainingFx(true);
-  });
-  refreshTrainingFx(false);
+  refreshTrainingFx();
 </script>
 {% endblock %}
