@@ -31,8 +31,12 @@
         <input class="form-control" name="instructor" value="{{ row.instructor if row else '' }}" required>
       </div>
       <div class="col-md-6">
-        <label class="form-label">{{ t('unit_krw') }}</label>
+        <label class="form-label">{{ t('unit_krw_usd') }}</label>
         <input class="form-control js-krw" type="text" inputmode="numeric" name="unit_price_krw" value="{{ '{:,}'.format(row.unit_price_krw) if row else '0' }}" required>
+        <div class="money-dual unit-fx-live">
+          <div class="krw">KRW <b id="unitKrwLive">0</b></div>
+          <div class="usd js-fx-cell" id="unitUsdLive" data-fx-krw="0">{{ t('fx_need_rate') }}</div>
+        </div>
       </div>
       <div class="col-md-6">
         <label class="form-label">{{ t('training_learner_count') }}</label>
@@ -66,9 +70,8 @@
       </div>
       <p class="muted mt-3 mb-0">{{ t('fx_applied_help') }}</p>
       <div class="calc-nums">
-        <div>{{ t('krw_total') }} <b id="previewKrw">0</b></div>
-        <div>{{ t('unit_usd') }} <b id="previewUnitFx">0.00</b></div>
-        <div>{{ t('amount_usd') }} <b id="previewFx">0.00</b></div>
+        <div>{{ t('unit_krw_usd') }} <b id="previewUnitKrw">0</b> / <b id="previewUnitFx">0.00</b></div>
+        <div>{{ t('training_total') }} <b id="previewKrw">0</b> / <b id="previewFx">0.00</b></div>
       </div>
     </div>
     <div class="mt-4 d-flex gap-2">
@@ -104,16 +107,28 @@
     const rate = Number(rateEl?.value || 0);
     const currency = curEl?.value || "USD";
     const fmtFx = (n) => window.pguFormatFx ? window.pguFormatFx(n, currency) : (currency + " " + Number(n || 0).toFixed(2));
-    document.getElementById("previewKrw").textContent = krw.toLocaleString();
+    document.getElementById("previewKrw").textContent = "KRW " + krw.toLocaleString();
+    document.getElementById("previewUnitKrw").textContent = "KRW " + unit.toLocaleString();
+    document.getElementById("unitKrwLive").textContent = unit.toLocaleString();
+    const unitUsdEl = document.getElementById("unitUsdLive");
+    if (unitUsdEl) unitUsdEl.setAttribute("data-fx-krw", String(unit));
     if (!rate) {
       document.getElementById("previewUnitFx").textContent = emptyFx;
       document.getElementById("previewFx").textContent = emptyFx;
+      if (unitUsdEl) {
+        unitUsdEl.textContent = emptyFx;
+        unitUsdEl.classList.add("is-empty");
+      }
       return;
     }
     const unitFx = window.pguMoneyFx ? window.pguMoneyFx(unit, rate) : (unit / rate);
     const totalFx = window.pguMoneyFx ? window.pguMoneyFx(krw, rate) : (krw / rate);
     document.getElementById("previewUnitFx").textContent = fmtFx(unitFx);
     document.getElementById("previewFx").textContent = fmtFx(totalFx);
+    if (unitUsdEl) {
+      unitUsdEl.classList.remove("is-empty");
+      unitUsdEl.textContent = fmtFx(unitFx);
+    }
   }
 
   [unitEl, qtyEl, rateEl, curEl].forEach((el) => {

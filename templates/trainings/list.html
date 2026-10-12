@@ -51,9 +51,8 @@
           <th>{{ t('period') }}</th>
           <th>{{ t('instructor') }}</th>
           <th class="text-end">{{ t('learner_count') }}</th>
-          <th class="text-end">{{ t('unit_krw') }}</th>
-          <th class="text-end">{{ t('krw_total') }}</th>
-          <th class="text-end">{{ t('amount_usd') }}</th>
+          <th class="text-end">{{ t('unit_krw_usd') }}</th>
+          <th class="text-end">{{ t('training_total') }}</th>
           <th>{{ t('status') }}</th>
           <th>{{ t('actions') }}</th>
         </tr>
@@ -61,7 +60,7 @@
       <tbody>
         {% for group in groups %}
         <tr class="group-row">
-          <td colspan="11">{{ group.label }}</td>
+          <td colspan="10">{{ group.label }}</td>
         </tr>
         {% for row in group.rows %}
         {% set qty = learner_counts.get(row.id, 0) %}
@@ -76,9 +75,14 @@
           <td>{{ row.start_date | ymd }} ~ {{ row.end_date | ymd }}</td>
           <td>{{ row.instructor }}</td>
           <td class="text-end">{{ qty }}</td>
-          <td class="text-end">{{ row.unit_price_krw | krw }}</td>
-          <td class="text-end">{{ krw_total | krw }}</td>
-          <td class="text-end fx-amount js-fx-cell" data-fx-krw="{{ krw_total }}">{{ t('fx_need_rate') }}</td>
+          <td class="text-end money-dual">
+            <div class="krw">KRW {{ row.unit_price_krw | krw }}</div>
+            <div class="usd fx-amount js-fx-cell" data-fx-krw="{{ row.unit_price_krw or 0 }}">{{ t('fx_need_rate') }}</div>
+          </td>
+          <td class="text-end money-dual">
+            <div class="krw">KRW {{ krw_total | krw }}</div>
+            <div class="usd fx-amount js-fx-cell js-fx-total" data-fx-krw="{{ krw_total }}">{{ t('fx_need_rate') }}</div>
+          </td>
           <td>
             {% if used %}
             <span class="badge-status s-issued">{{ t('training_issued_badge') }}</span>
@@ -93,7 +97,7 @@
         </tr>
         {% endfor %}
         {% else %}
-        <tr><td colspan="11" class="empty">{{ t('period_empty') }}</td></tr>
+        <tr><td colspan="10" class="empty">{{ t('period_empty') }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -173,7 +177,7 @@
     const currency = (fxCurEl && fxCurEl.value) || "USD";
     let krw = 0;
     document.querySelectorAll(".js-training-check:checked").forEach((box) => {
-      const cell = box.closest("tr")?.querySelector(".js-fx-cell");
+      const cell = box.closest("tr")?.querySelector(".js-fx-total");
       krw += Number(cell?.getAttribute("data-fx-krw") || 0);
     });
     if (!rate) {
