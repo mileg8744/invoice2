@@ -29,11 +29,19 @@ def refresh_mail_env() -> None:
 
 
 def _mail_val(name: str, default: str = "") -> str:
-    live = (os.environ.get(name) or "").strip()
+    def as_text(value) -> str:
+        if value is None:
+            return ""
+        return str(value).strip()
+
+    live = as_text(os.environ.get(name))
     if live:
         return live
     refresh_mail_env()
-    return (os.environ.get(name) or getattr(Config, name, default) or default).strip()
+    live = as_text(os.environ.get(name))
+    if live:
+        return live
+    return as_text(getattr(Config, name, default) or default)
 
 
 def mail_from_address() -> str:

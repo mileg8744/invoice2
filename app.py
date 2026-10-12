@@ -220,6 +220,12 @@ def create_app():
     def inject_globals():
         user = current_user()
         lang = session.get("lang", "ko")
+        try:
+            mail_live = smtp_configured()
+            mail_from = mail_from_address()
+        except Exception:
+            mail_live = False
+            mail_from = ""
         return {
             "t": t,
             "lang": lang,
@@ -229,8 +235,8 @@ def create_app():
             "entity_types": ENTITY_TYPES,
             "entity_type_label": entity_type_label,
             "hq_copy_email": Config.HQ_COPY_EMAIL,
-            "mail_live": smtp_configured(),
-            "mail_from": mail_from_address(),
+            "mail_live": mail_live,
+            "mail_from": mail_from,
         }
 
     @app.template_filter("krw")
