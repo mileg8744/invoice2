@@ -38,7 +38,7 @@ from mailer import (
     send_invoice_email,
     send_test_email,
 )
-from smtp_mail import smtp_configured
+from smtp_mail import mail_from_address, smtp_configured
 from models import AuditLog, Base, Invoice, InvoiceItem, Subsidiary, Training, User, utcnow
 from pdf_invoice import generate_invoice_pdf
 from regions import REGIONS, apply_region, resolve_region
@@ -52,6 +52,7 @@ from corporation_master import (
     emails_from_text,
     emails_to_text,
     ensure_login_user,
+    entity_mail_recipients,
     freeze_issued_parties,
     hr_emails,
     import_master_json,
@@ -67,7 +68,12 @@ STATUS_ORDER = ["draft", "issued", "acknowledged", "paid"]
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
-    logging.getLogger("pgu.mail").setLevel(logging.INFO)
+    mail_log = logging.getLogger("pgu.mail")
+    mail_log.setLevel(logging.INFO)
+    if not mail_log.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        mail_log.addHandler(handler)
     INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     PDF_DIR.mkdir(parents=True, exist_ok=True)
@@ -224,7 +230,7 @@ def create_app():
             "entity_type_label": entity_type_label,
             "hq_copy_email": Config.HQ_COPY_EMAIL,
             "mail_live": smtp_configured(),
-            "mail_from": getattr(Config, "MAIL_FROM", "") or "",
+            "mail_from": mail_from_address(),
         }
 
     @app.template_filter("krw")
@@ -473,6 +479,8 @@ def create_app():
                 flash(t("smtp_auth_failed"), "danger")
             elif err == "mail_body_required":
                 flash(t("mail_body_required"), "danger")
+            elif err == "smtp_recipient_refused":
+                flash(t("smtp_recipient_refused"), "danger")
             else:
                 flash(f"{t('mail_send_fail')} {err}".strip(), "danger")
             return False
@@ -501,7 +509,7 @@ def create_app():
     def invoice_compose_recipients(row, kind):
         if kind == "hq":
             return hq_copy_emails(), []
-        return split_email_roles(contact_emails(row.subsidiary), hr_emails(row.subsidiary))
+        return entity_mail_recipients(row.subsidiary)
 
     def parse_compose_recipients(form, row, kind):
         extra_to = emails_from_text(form.get("mail_to_extra") or "")
@@ -964,8 +972,17 @@ def create_app():
     @app.route("/settings/mail/test", methods=["POST"])
     @admin_required
     def mail_test():
+        db = Session()
         mail = send_test_email(request.form.get("test_to") or "")
         flash_mail_result(mail, "mail_test_ok")
+        log_action(
+            db,
+            "settings",
+            "mail",
+            "TEST",
+            mail_log_detail(mail) if mail.get("ok") else (mail.get("error") or "fail"),
+        )
+        db.commit()
         return redirect(url_for("hq_settings"))
 
     # ---------- subsidiaries ----------
@@ -2747,9 +2764,10 @@ def create_app():
         else:
             flash(t("not_found"), "danger")
             return redirect(url_for("invoice_detail", iid=iid))
-        if kind != "hq" and not contact_emails(row.subsidiary):
-            flash(t("no_email"), "danger")
-            return redirect(url_for("invoice_detail", iid=iid))
+        if kind != "hq":
+            to_list, cc_list = entity_mail_recipients(row.subsidiary)
+            if not to_list and not cc_list:
+                flash(t("no_email_enter"), "warning")
         return render_mail_compose(
             kind,
             [row],

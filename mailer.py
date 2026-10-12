@@ -84,11 +84,21 @@ DEFAULT_MAIL_TEMPLATES = {
 }
 
 
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+
+
 def parse_emails(raw: str) -> list[str]:
     if not raw:
         return []
-    parts = raw.replace("\n", ";").replace(",", ";").split(";")
-    return [p.strip() for p in parts if p.strip() and "@" in p]
+    found = []
+    seen = set()
+    for addr in _EMAIL_RE.findall(str(raw)):
+        key = addr.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        found.append(addr)
+    return found
 
 
 def hq_copy_emails() -> list[str]:
@@ -465,12 +475,12 @@ def send_invoice_email(
         to_recipients = list(dict.fromkeys(hq_recipients + extra))
         cc_recipients = []
     else:
-        to_recipients = parse_emails(getattr(invoice.subsidiary, "emails", "") or "")
+        from corporation_master import entity_mail_recipients
+
+        to_recipients, cc_recipients = entity_mail_recipients(invoice.subsidiary)
         for email in extra:
-            if email not in to_recipients:
+            if email not in to_recipients and email not in cc_recipients:
                 to_recipients.append(email)
-        hr = parse_emails(getattr(invoice.subsidiary, "hr_emails", "") or "")
-        cc_recipients = [e for e in hr if e not in to_recipients]
     recipients = to_recipients + cc_recipients
     if not to_recipients:
         return {"ok": False, "error": "no_email", "recipients": [], "to": [], "cc": []}

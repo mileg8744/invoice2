@@ -76,6 +76,15 @@ def hr_emails(sub) -> list[str]:
     return emails_from_text(getattr(sub, "hr_emails", "") or "")
 
 
+def entity_mail_recipients(sub) -> tuple[list[str], list[str]]:
+    """To = 담당자, Cc = 인사주재원. 담당자가 없으면 인사주재원을 To로 쓴다."""
+    to_list = contact_emails(sub)
+    cc_list = hr_emails(sub)
+    if to_list:
+        return split_email_roles(to_list, cc_list)
+    return split_email_roles(cc_list, [])
+
+
 def invoice_party(invoice) -> dict[str, str]:
     sub = getattr(invoice, "subsidiary", None)
     name = (getattr(invoice, "billed_name", None) or "").strip()
