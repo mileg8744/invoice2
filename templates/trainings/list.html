@@ -28,14 +28,35 @@
   <div class="upload-inline wrap">
     <strong>{{ t('bulk_from_trainings') }}</strong>
     <span class="muted">{{ t('bulk_from_trainings_help') }}</span>
-    <select class="form-select" name="currency" id="fxCurrency" style="max-width:110px">
-      <option value="USD" {% if fx_currency == 'USD' %}selected{% endif %}>USD</option>
-      <option value="EUR" {% if fx_currency == 'EUR' %}selected{% endif %}>EUR</option>
-    </select>
-    <input class="form-control" style="max-width:140px" type="number" step="0.01" min="0.01" name="exchange_rate" id="fxRate" value="{{ fx_rate }}" placeholder="{{ t('rate') }}" required>
-    <input class="form-control" style="max-width:160px" type="date" name="rate_date" value="{{ fx_rate_date }}" required>
-    <span class="fx-live-chip" id="fxLiveSummary">{{ t('fx_need_rate') }}</span>
-    <button class="btn btn-navy" type="submit" {% if not rows %}disabled{% endif %}>{{ t('bulk_from_trainings') }}</button>
+  </div>
+  <div class="bulk-fx-grid">
+    <label>
+      <span>{{ t('currency') }}</span>
+      <select class="form-select" name="currency" id="fxCurrency">
+        <option value="USD" {% if fx_currency == 'USD' %}selected{% endif %}>USD</option>
+        <option value="EUR" {% if fx_currency == 'EUR' %}selected{% endif %}>EUR</option>
+      </select>
+    </label>
+    <label>
+      <span>{{ t('rate') }}</span>
+      <input class="form-control" type="number" step="0.01" min="0.01" name="exchange_rate" id="fxRate" value="{{ fx_rate }}" placeholder="{{ t('rate') }}" required>
+    </label>
+    <label>
+      <span>{{ t('rate_date') }}</span>
+      <input class="form-control" type="date" name="rate_date" value="{{ fx_rate_date }}" required>
+    </label>
+    <label>
+      <span>{{ t('unit_usd') }}</span>
+      <input class="form-control" type="number" step="0.01" min="0.01" name="unit_price_usd" id="fxUnitUsd" placeholder="0.00">
+    </label>
+    <label>
+      <span>{{ t('issue_date') }}</span>
+      <input class="form-control" type="date" name="document_date" value="{{ today }}" required>
+    </label>
+    <div class="bulk-fx-actions">
+      <span class="fx-live-chip" id="fxLiveSummary">{{ t('fx_need_rate') }}</span>
+      <button class="btn btn-navy" type="submit" {% if not rows %}disabled{% endif %}>{{ t('bulk_from_trainings') }}</button>
+    </div>
   </div>
 </div>
 <section class="card-panel">
@@ -163,18 +184,31 @@
 
   const fxRateEl = document.getElementById("fxRate");
   const fxCurEl = document.getElementById("fxCurrency");
+  const fxUnitEl = document.getElementById("fxUnitUsd");
   const fxSummary = document.getElementById("fxLiveSummary");
   const emptyFx = {{ t('fx_need_rate') | tojson }};
+  let syncingUsd = false;
 
-  function refreshTrainingFx() {
+  function firstCheckedUnitKrw() {
+    const box = document.querySelector(".js-training-check:checked");
+    return Number(box?.closest("tr")?.querySelector(".js-fx-cell")?.getAttribute("data-fx-krw") || 0);
+  }
+
+  function refreshTrainingFx(fromUsd) {
     window.pguRefreshFxCells({
       rateEl: fxRateEl,
       currencyEl: fxCurEl,
       emptyText: emptyFx,
     });
-    if (!fxSummary) return;
     const rate = Number((fxRateEl && fxRateEl.value) || 0);
     const currency = (fxCurEl && fxCurEl.value) || "USD";
+    const unitKrw = firstCheckedUnitKrw();
+    if (!syncingUsd && !fromUsd && fxUnitEl && unitKrw && rate) {
+      syncingUsd = true;
+      fxUnitEl.value = window.pguMoneyFx(unitKrw, rate).toFixed(2);
+      syncingUsd = false;
+    }
+    if (!fxSummary) return;
     let krw = 0;
     document.querySelectorAll(".js-training-check:checked").forEach((box) => {
       const cell = box.closest("tr")?.querySelector(".js-fx-total");
@@ -190,9 +224,19 @@
   }
 
   ["input", "change"].forEach((ev) => {
-    fxRateEl?.addEventListener(ev, refreshTrainingFx);
-    fxCurEl?.addEventListener(ev, refreshTrainingFx);
+    fxRateEl?.addEventListener(ev, () => refreshTrainingFx(false));
+    fxCurEl?.addEventListener(ev, () => refreshTrainingFx(false));
   });
-  refreshTrainingFx();
+  fxUnitEl?.addEventListener("input", () => {
+    const unitKrw = firstCheckedUnitKrw();
+    const usd = Number(fxUnitEl.value || 0);
+    if (!syncingUsd && unitKrw && usd) {
+      syncingUsd = true;
+      fxRateEl.value = (unitKrw / usd).toFixed(2);
+      syncingUsd = false;
+    }
+    refreshTrainingFx(true);
+  });
+  refreshTrainingFx(false);
 </script>
 {% endblock %}

@@ -1810,7 +1810,8 @@ def create_app():
         if currency not in ("USD", "EUR"):
             currency = "USD"
         rate_date = _as_date(form.get("rate_date") or date.today())
-        return currency, rate, rate_date
+        document_date = _as_date(form.get("document_date") or date.today())
+        return currency, rate, rate_date, document_date
 
     def issued_training_ids(db, subsidiary_id, training_ids):
         if not training_ids:
@@ -1861,7 +1862,15 @@ def create_app():
         return found
 
     def bulk_invoices_from_trainings(db, trainings, form):
-        currency, rate, rate_date = parse_bulk_fx(form)
+        currency, rate, rate_date, document_date = parse_bulk_fx(form)
+        try:
+            unit_usd = float(str(form.get("unit_price_usd") or "").replace(",", "").strip() or 0)
+        except (TypeError, ValueError):
+            unit_usd = 0
+        if unit_usd > 0:
+            ref_krw = next((int(tr.unit_price_krw or 0) for tr in trainings if int(tr.unit_price_krw or 0) > 0), 0)
+            if ref_krw:
+                rate = ref_krw / unit_usd
         if rate <= 0:
             return None
         buckets = {}
@@ -1922,7 +1931,7 @@ def create_app():
                     amount_fx=0,
                     vat_rate=0.0,
                     status="draft",
-                    document_date=date.today(),
+                    document_date=document_date,
                 )
                 db.add(inv)
                 db.flush()
@@ -1930,7 +1939,7 @@ def create_app():
             inv.currency = currency
             inv.exchange_rate = rate
             inv.rate_date = rate_date
-            inv.document_date = date.today()
+            inv.document_date = document_date
             inv.year = year
             inv.half = half
             inv.updated_at = utcnow()

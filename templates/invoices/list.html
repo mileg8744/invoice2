@@ -130,7 +130,7 @@
           </td>
           {% endif %}
           <td class="mono"><a href="{{ url_for('invoice_detail', iid=row.id) }}">{{ row.invoice_no }}</a></td>
-          <td>{{ row.subsidiary.code }}<div class="tiny">{{ row.subsidiary.name_en }}</div></td>
+          <td>{{ row.subsidiary.name_ko or row.subsidiary.name_en }}<div class="tiny">{{ row.billed_name or row.subsidiary.name_en }}</div></td>
           <td>{{ row.education_name }}</td>
           <td>{{ row.period_start | ymd }} ~ {{ row.period_end | ymd }}</td>
           <td class="text-end">{{ row.qty }}</td>

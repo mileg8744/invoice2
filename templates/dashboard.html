@@ -96,7 +96,7 @@
         {% for row in stats.recent %}
         <tr>
           <td><a href="{{ url_for('invoice_detail', iid=row.id) }}">{{ row.invoice_no }}</a></td>
-          <td>{{ row.subsidiary.code }}<div class="tiny">{{ row.subsidiary.name_en }}</div></td>
+          <td>{{ row.subsidiary.name_ko or row.subsidiary.name_en }}<div class="tiny">{{ row.billed_name or row.subsidiary.name_en }}</div></td>
           <td>{{ row.education_name }}</td>
           <td class="text-end">{{ row.amount_krw | krw }}</td>
           <td class="text-end">{{ row.currency }} {{ row.amount_fx | fx }}</td>

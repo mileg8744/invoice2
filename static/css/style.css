@@ -303,6 +303,17 @@ html.sidebar-collapsed .sidebar-restore-tab { display: inline-flex; }
 }
 .period-banner-title { color: var(--navy); font-size: 22px; font-weight: 700; }
 .period-unassigned { border-color: #e6c7a8; }
+.bulk-fx-grid {
+  display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: flex-end; margin-top: 12px;
+}
+.bulk-fx-grid > label {
+  display: flex; flex-direction: column; gap: 4px; margin: 0; min-width: 120px;
+}
+.bulk-fx-grid > label > span {
+  font-size: 12px; font-weight: 700; color: var(--steel);
+}
+.bulk-fx-grid .form-select, .bulk-fx-grid .form-control { min-width: 130px; }
+.bulk-fx-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
 @media (max-width: 1100px) {
   .stat-grid, .two-col, .period-grid { grid-template-columns: 1fr 1fr; }
