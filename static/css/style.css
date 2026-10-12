@@ -268,6 +268,15 @@ html.sidebar-collapsed .sidebar-restore-tab { display: inline-flex; }
 .login-card { padding: 36px; }
 .login-card h2 { color: var(--navy); margin-bottom: 16px; }
 .login-card label { margin-top: 10px; font-size: 13px; color: var(--muted); }
+.password-wrap { position: relative; }
+.password-wrap .form-control { padding-right: 42px; }
+.password-toggle {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  border: 0; background: transparent; color: var(--muted);
+  width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; border-radius: 8px;
+}
+.password-toggle:hover { color: var(--navy); background: var(--ice); }
 .login-body { position: relative; }
 .login-lang { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,.14); z-index: 3; }
 .login-wrap { margin-top: 28px; }
