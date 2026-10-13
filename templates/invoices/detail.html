@@ -16,8 +16,12 @@
     {% if current_user.role == 'admin' %}
     <a class="btn btn-outline-navy" href="{{ url_for('invoice_edit', iid=row.id) }}">{{ t('edit') }}</a>
     {% if row.status == 'draft' %}
-    <a class="btn btn-navy" href="{{ url_for('invoice_compose', iid=row.id, kind='issue') }}">{{ t('issue') }}</a>
-    {% else %}
+    <form method="post" action="{{ url_for('invoice_issue', iid=row.id) }}" class="d-inline" onsubmit="return confirm('{{ t('confirm_issue') }}');">
+      <button class="btn btn-navy" type="submit">{{ t('issue') }}</button>
+    </form>
+    {% endif %}
+    <a class="btn btn-outline-navy" href="{{ url_for('invoice_compose', iid=row.id, kind='issue') }}">{{ t('send_contact_mail') }}</a>
+    {% if row.status != 'draft' %}
     <a class="btn btn-outline-navy" href="{{ url_for('invoice_compose', iid=row.id, kind='resend') }}">{{ t('reissue_mail') }}</a>
     {% if row.status in ['issued','acknowledged'] %}
     <a class="btn btn-ghost" href="{{ url_for('invoice_compose', iid=row.id, kind='remind') }}">{{ t('remind') }}</a>

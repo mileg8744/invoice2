@@ -2764,12 +2764,10 @@ def create_app():
         if not row:
             return redirect(url_for("invoices"))
         if kind == "issue":
-            if row.status != "draft":
-                flash(t("issue_disabled"), "warning")
-                return redirect(url_for("invoice_detail", iid=iid))
-            apply_training_headcounts(db, row)
-            db.commit()
-            action = url_for("invoice_issue", iid=iid)
+            if row.status == "draft":
+                apply_training_headcounts(db, row)
+                db.commit()
+            action = url_for("invoice_send", iid=iid)
         elif kind == "remind":
             if row.status not in ("issued", "acknowledged"):
                 flash(t("issued_only_remind"), "warning")
@@ -2794,6 +2792,17 @@ def create_app():
             fill=True,
         )
 
+    def mark_invoice_issued(db, row):
+        apply_training_headcounts(db, row)
+        snapshot_invoice_party(row)
+        path = rebuild_pdf(row)
+        if row.status == "draft":
+            row.status = "issued"
+            row.issued_at = utcnow()
+            row.issued_by = current_user().username
+            row.document_date = date.today()
+        return path
+
     @app.route("/invoices/<int:iid>/issue", methods=["POST"])
     @admin_required
     def invoice_issue(iid):
@@ -2804,15 +2813,27 @@ def create_app():
         if row.status != "draft":
             flash(t("issue_disabled"), "warning")
             return redirect(url_for("invoice_detail", iid=iid))
+        mark_invoice_issued(db, row)
+        log_action(db, "invoice", row.invoice_no, "ISSUE", current_user().username)
+        db.commit()
+        flash(t("issued_ok"), "success")
+        return redirect(url_for("invoice_detail", iid=iid))
+
+    @app.route("/invoices/<int:iid>/send", methods=["POST"])
+    @admin_required
+    def invoice_send(iid):
+        db = Session()
+        row = db.get(Invoice, iid)
+        if not row:
+            return redirect(url_for("invoices"))
         to_list, cc_list = parse_compose_recipients(request.form, row, "issue")
         if not to_list:
             flash(t("no_email"), "danger")
             return redirect(url_for("invoice_detail", iid=iid))
         if request.form.get("compose_ready") != "1":
             return redirect(url_for("invoice_compose", iid=iid, kind="issue"))
-        apply_training_headcounts(db, row)
-        snapshot_invoice_party(row)
-        path = rebuild_pdf(row)
+        was_draft = row.status == "draft"
+        path = mark_invoice_issued(db, row)
         mail = send_invoice_email(
             row,
             path,
@@ -2822,17 +2843,13 @@ def create_app():
             to_recipients=to_list,
             cc_recipients=cc_list,
         )
-        if not flash_mail_result(mail, "issued_ok", commit=False):
+        if not flash_mail_result(mail, "mail_sent_ok", commit=False):
             return redirect(url_for("invoice_detail", iid=iid))
-        row.status = "issued"
-        row.issued_at = utcnow()
-        row.issued_by = current_user().username
-        row.document_date = date.today()
         log_action(
             db,
             "invoice",
             row.invoice_no,
-            "ISSUE",
+            "ISSUE" if was_draft else "SEND",
             mail_log_detail(mail),
         )
         db.commit()
