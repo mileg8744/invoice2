@@ -19,7 +19,7 @@
     <select class="form-select" name="country">
       <option value="">{{ t('country') }}</option>
       {% for c in filters.countries %}
-      <option value="{{ c }}" {% if filters.country == c %}selected{% endif %}>{{ c }}</option>
+      <option value="{{ c.value }}" {% if filters.country == c.value %}selected{% endif %}>{{ c.label }}</option>
       {% endfor %}
     </select>
     <select class="form-select" name="entity_type">

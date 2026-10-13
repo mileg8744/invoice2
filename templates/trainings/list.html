@@ -93,12 +93,12 @@
           <td>{{ row.instructor }}</td>
           <td class="text-end">{{ qty }}</td>
           <td class="text-end money-dual">
-            <div class="krw">KRW {{ row.unit_price_krw | krw }}</div>
             <div class="usd fx-amount js-fx-cell" data-fx-krw="{{ row.unit_price_krw or 0 }}">{{ t('fx_need_rate') }}</div>
+            <div class="krw">KRW {{ row.unit_price_krw | krw }}</div>
           </td>
           <td class="text-end money-dual">
-            <div class="krw">KRW {{ krw_total | krw }}</div>
             <div class="usd fx-amount js-fx-cell js-fx-total" data-fx-krw="{{ krw_total }}">{{ t('fx_need_rate') }}</div>
+            <div class="krw">KRW {{ krw_total | krw }}</div>
           </td>
           <td>
             {% if used %}

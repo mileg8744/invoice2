@@ -227,8 +227,8 @@ html.sidebar-collapsed .sidebar-restore-tab { display: inline-flex; }
 .fx-amount { color: var(--navy); font-weight: 700; white-space: nowrap; }
 .fx-amount.is-empty, .js-fx-cell.is-empty { color: var(--muted); font-weight: 500; }
 .money-dual { line-height: 1.35; }
-.money-dual .krw { font-weight: 700; color: var(--ink); }
-.money-dual .usd { font-size: 12px; font-weight: 700; color: var(--navy); margin-top: 2px; }
+.money-dual .usd { font-weight: 700; color: var(--ink); }
+.money-dual .krw { font-size: 12px; font-weight: 700; color: var(--navy); margin-top: 2px; }
 .unit-fx-live { margin-top: 8px; padding: 8px 10px; background: var(--ice); border-radius: 8px; }
 .unit-fx-live .krw, .unit-fx-live .usd { font-size: 14px; }
 .fx-live-chip {

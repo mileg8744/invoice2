@@ -62,15 +62,15 @@
       <dt>{{ t('unit_krw_usd') }}</dt>
       <dd>
         <div class="money-dual">
-          <div class="krw">KRW {{ row.unit_price_krw | krw }}</div>
           <div class="usd fx-amount">{{ row.currency }} {{ money_fx(row.unit_price_krw, row.exchange_rate) | fx }}</div>
+          <div class="krw">KRW {{ row.unit_price_krw | krw }}</div>
         </div>
       </dd>
       <dt>{{ t('amount_krw_usd') }}</dt>
       <dd>
         <div class="money-dual">
-          <div class="krw">KRW {{ row.amount_krw | krw }}</div>
           <div class="usd fx-amount">{{ row.currency }} {{ money_fx(row.amount_krw, row.exchange_rate) | fx }}</div>
+          <div class="krw">KRW {{ row.amount_krw | krw }}</div>
         </div>
       </dd>
       <dt>{{ t('currency') }} / {{ t('rate') }}</dt><dd>{{ row.currency }} · {{ row.exchange_rate | rate }} ({{ row.rate_date | ymd }})</dd>
@@ -104,12 +104,12 @@
         <td>{{ it.instructor or row.instructor or t('none') }}</td>
         <td class="text-end">{{ it.qty }}</td>
         <td class="text-end money-dual">
-          <div class="krw">KRW {{ it.unit_price_krw | krw }}</div>
           <div class="usd fx-amount">{{ row.currency }} {{ money_fx(it.unit_price_krw, row.exchange_rate) | fx }}</div>
+          <div class="krw">KRW {{ it.unit_price_krw | krw }}</div>
         </td>
         <td class="text-end money-dual">
-          <div class="krw">KRW {{ it.amount_krw | krw }}</div>
           <div class="usd fx-amount">{{ row.currency }} {{ money_fx(it.amount_krw, row.exchange_rate) | fx }}</div>
+          <div class="krw">KRW {{ it.amount_krw | krw }}</div>
         </td>
       </tr>
       {% endfor %}

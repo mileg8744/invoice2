@@ -35,12 +35,13 @@ from mailer import (
     hq_copy_emails,
     mail_placeholder_help,
     parse_emails,
+    send_combined_pdf_email,
     send_invoice_email,
     send_test_email,
 )
 from smtp_mail import mail_from_address, smtp_configured
 from models import AuditLog, Base, Invoice, InvoiceItem, Subsidiary, Training, User, utcnow
-from pdf_invoice import generate_invoice_pdf
+from pdf_invoice import generate_invoice_pdf, merge_pdf_files
 from regions import REGIONS, apply_region, resolve_region
 from entity_types import ENTITY_TYPES, entity_type_label, resolve_entity_type
 from seed import seed_if_empty
@@ -49,6 +50,7 @@ from periods import load_declared_periods, save_declared_period
 from corporation_master import (
     MASTER_JSON,
     contact_emails,
+    country_filter_choices,
     emails_from_text,
     emails_to_text,
     ensure_login_user,
@@ -1041,7 +1043,7 @@ def create_app():
     def subsidiary_filter_options(db):
         rows = db.query(Subsidiary).all()
         companies = sorted({(r.company or "").strip() for r in rows if (r.company or "").strip()})
-        countries = sorted({(r.country or "").strip() for r in rows if (r.country or "").strip()})
+        countries = country_filter_choices(rows, session.get("lang", "ko"))
         return {
             "q": request.args.get("q", "").strip(),
             "company": request.args.get("company", "").strip(),
@@ -3113,43 +3115,36 @@ def create_app():
             )
         subject = request.form.get("mail_subject")
         body_text = request.form.get("mail_body")
-        sent = failed = 0
-        via = "outbox"
+        paths = []
         for row in rows:
             try:
-                path = rebuild_pdf(row)
-                mail = send_invoice_email(
-                    row,
-                    path,
-                    kind="hq",
-                    hq_only=True,
-                    subject=subject,
-                    body_text=body_text,
-                )
-                if mail.get("ok"):
-                    sent += 1
-                    if mail.get("via") == "smtp":
-                        via = "smtp"
-                    log_action(
-                        db,
-                        "invoice",
-                        row.invoice_no,
-                        "HQ_COPY",
-                        ",".join(mail.get("recipients") or []),
-                    )
-                else:
-                    failed += 1
+                paths.append(rebuild_pdf(row))
             except Exception:
-                failed += 1
+                log_action(db, "invoice", row.invoice_no, "HQ_COPY", "pdf_rebuild_failed")
+        pdf_bytes = merge_pdf_files(paths)
+        if not pdf_bytes:
+            flash(t("hq_bulk_fail"), "danger")
+            db.commit()
+            return redirect(url_for("invoices", **request.args))
+        stamp = date.today().strftime("%Y%m%d")
+        mail = send_combined_pdf_email(
+            invoices=rows,
+            pdf_bytes=pdf_bytes,
+            pdf_name=f"PGU_invoices_{stamp}.pdf",
+            subject=subject,
+            body_text=body_text,
+            to_recipients=hq_copy_emails(),
+            kind="hq",
+        )
+        if flash_mail_result(mail, "hq_bulk_ok", commit=False):
+            log_action(
+                db,
+                "invoice",
+                "HQ_COPY",
+                "HQ_COPY",
+                f"combined={len(rows)};{mail_log_detail(mail)}",
+            )
         db.commit()
-        if sent:
-            flash(f"{t('hq_bulk_ok')} {sent}{t('rows')} · {hq_copy_emails()[0]}", "success")
-            if via == "outbox":
-                flash(t("email_saved_outbox"), "info")
-        if failed:
-            flash(f"{t('hq_bulk_fail')} {failed}{t('rows')}", "warning")
-        if not sent and not failed:
-            flash(t("hq_bulk_none"), "warning")
         return redirect(url_for("invoices", **request.args))
 
     @app.route("/invoices/<int:iid>/pdf")

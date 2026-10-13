@@ -26,7 +26,7 @@
           <select class="form-select" data-entity-country>
             <option value="">{{ t('country') }}</option>
             {% for c in entity_countries %}
-            <option value="{{ c }}">{{ c }}</option>
+            <option value="{{ c.value }}">{{ c.label }}</option>
             {% endfor %}
           </select>
         </div>

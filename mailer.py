@@ -531,6 +531,113 @@ def send_invoice_email(
     )
 
 
+def wrap_combined_html(invoices, headline: str, body_text: str) -> str:
+    navy = "#002060"
+    logo = _header_logo_html()
+    body_html = text_to_html_blocks(body_text)
+    portal = portal_url()
+    portal_href = escape(portal, quote=True)
+    count = len(invoices or [])
+    rows = []
+    for inv in invoices or []:
+        name = (getattr(inv, "billed_name", None) or "").strip() or getattr(
+            getattr(inv, "subsidiary", None), "name_en", ""
+        ) or ""
+        rows.append(
+            "<tr>"
+            f'<td style="padding:8px 12px;border-bottom:1px solid #E4E8EE;font-size:13px;color:#1b2a4e;">{escape(str(inv.invoice_no))}</td>'
+            f'<td style="padding:8px 12px;border-bottom:1px solid #E4E8EE;font-size:13px;color:#1b2a4e;">{escape(str(name))}</td>'
+            f'<td style="padding:8px 12px;border-bottom:1px solid #E4E8EE;font-size:13px;color:#1b2a4e;">{escape(str(inv.education_name or ""))}</td>'
+            f'<td align="right" style="padding:8px 12px;border-bottom:1px solid #E4E8EE;font-size:13px;color:#1b2a4e;">{escape(str(inv.currency or ""))} {float(inv.amount_fx or 0):,.2f}</td>'
+            "</tr>"
+        )
+    return f"""
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0;padding:0;background:#F4F6F8;">
+  <tr>
+    <td align="center" style="padding:16px 8px;">
+      <table role="presentation" width="650" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:650px;background:#ffffff;">
+        <tr>
+          <td style="background:{navy};padding:18px 24px 16px;">
+            {logo}
+            <div style="margin:10px 0 0;font-family:Calibri,'Segoe UI',Arial,sans-serif;font-size:18px;line-height:1.3;font-weight:700;color:#ffffff;">{escape(headline or "")}</div>
+            <div style="margin:4px 0 0;font-family:Calibri,'Segoe UI',Arial,sans-serif;font-size:12px;line-height:1.4;color:#D6DEE8;">{count} invoice(s) attached as one PDF</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 24px 8px;font-family:Calibri,'Segoe UI',Arial,sans-serif;color:#1b2a4e;text-align:left;">
+            {body_html}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:8px 24px 20px;font-family:Calibri,'Segoe UI',Arial,sans-serif;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #E4E8EE;">
+              <tr>
+                <th align="left" style="background:#F4F6F8;padding:9px 12px;font-size:12px;color:#5B6770;">Invoice</th>
+                <th align="left" style="background:#F4F6F8;padding:9px 12px;font-size:12px;color:#5B6770;">Entity</th>
+                <th align="left" style="background:#F4F6F8;padding:9px 12px;font-size:12px;color:#5B6770;">Program</th>
+                <th align="right" style="background:#F4F6F8;padding:9px 12px;font-size:12px;color:#5B6770;">Amount</th>
+              </tr>
+              {''.join(rows)}
+            </table>
+            <div style="margin:14px 0 0;font-size:12px;color:#5B6770;">
+              <a href="{portal_href}" target="_blank" rel="noopener" style="color:#002060;">{escape(portal)}</a>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+"""
+
+
+def send_combined_pdf_email(
+    *,
+    invoices,
+    pdf_bytes: bytes,
+    pdf_name: str,
+    subject: str,
+    body_text: str,
+    to_recipients=None,
+    kind: str = "hq",
+) -> dict:
+    to_list = [e for e in (to_recipients if to_recipients is not None else hq_copy_emails()) if e]
+    if not to_list:
+        return {"ok": False, "error": "no_email", "recipients": [], "to": [], "cc": []}
+    draft = draft_mail_content(kind, None, fill=False)
+    subject = apply_mail_placeholders((subject if subject is not None else draft["subject"]).strip(), None)
+    body_text = apply_mail_placeholders(
+        (body_text if body_text is not None else draft["body"]).replace("\r\n", "\n").strip(),
+        None,
+    )
+    if not subject or not body_text:
+        return {"ok": False, "error": "mail_body_required", "recipients": to_list, "to": to_list, "cc": []}
+    body_html = wrap_combined_html(invoices, draft["headline"], body_text)
+    OUTBOX_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_file = OUTBOX_DIR / f"combined_hq_{stamp}.html"
+    try:
+        out_file.write_text(
+            f"<!-- To: {', '.join(to_list)} -->\n<!-- Subject: {subject} -->\n{body_html}",
+            encoding="utf-8",
+        )
+        if pdf_bytes:
+            (OUTBOX_DIR / f"combined_hq_{stamp}.pdf").write_bytes(pdf_bytes)
+    except OSError as exc:
+        log.warning("Combined mail outbox write failed: %s", sanitize_mail_error(str(exc)))
+    return _deliver(
+        subject=subject,
+        html=body_html,
+        to_recipients=to_list,
+        cc_recipients=[],
+        pdf_bytes=pdf_bytes or None,
+        pdf_name=pdf_name or "invoices.pdf",
+        out_file=out_file,
+        recipients=to_list,
+        plain=body_text,
+    )
+
+
 def send_test_email(to_addr: str) -> dict:
     try:
         return _send_test_email(to_addr)

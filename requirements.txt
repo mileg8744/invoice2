@@ -24,6 +24,7 @@ packaging==25.0
 pandas==2.3.3
 pillow==11.3.0
 psycopg2-binary==2.9.11
+pypdf==5.4.0
 pykrx==1.0.51
 pyparsing==3.2.5
 python-dateutil==2.9.0.post0

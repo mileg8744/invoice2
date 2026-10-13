@@ -36,7 +36,40 @@ COUNTRY_KO_EN = {
     "터키": "Turkey",
     "튀르키예": "Turkey",
     "호주": "Australia",
+    "뉴칼레도니아": "New Caledonia",
+    "미얀마": "Myanmar",
+    "벨기에": "Belgium",
+    "스페인": "Spain",
+    "슬로바키아": "Slovakia",
+    "아프리카": "Africa",
+    "프랑스": "France",
 }
+
+
+def country_filter_choices(rows, lang="ko"):
+    items = {}
+    for row in rows or []:
+        ko = (getattr(row, "country", "") or "").strip()
+        en = (getattr(row, "country_en", "") or "").strip() or COUNTRY_KO_EN.get(ko, "")
+        if not ko and not en:
+            continue
+        value = ko or en
+        key = value.casefold()
+        cur = items.get(key)
+        if not cur:
+            items[key] = {"value": value, "ko": ko or en, "en": en or ko}
+            continue
+        if ko:
+            cur["ko"] = ko
+            cur["value"] = ko
+        if en:
+            cur["en"] = en
+    use_en = str(lang or "").lower().startswith("en")
+    out = list(items.values())
+    out.sort(key=lambda item: (item["en"] if use_en else item["ko"]).casefold())
+    for item in out:
+        item["label"] = item["en"] if use_en and item["en"] else item["ko"]
+    return out
 
 
 def emails_from_text(raw) -> list[str]:

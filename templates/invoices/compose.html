@@ -60,7 +60,7 @@
     <input class="form-control mt-2" name="mail_cc_extra" placeholder="{{ t('mail_extra_cc') }}">
   </div>
   {% else %}
-  <p class="muted">{{ t('compose_bulk_recipients') }}</p>
+  <p class="muted">{{ t('compose_hq_combined') if kind == 'hq' else t('compose_bulk_recipients') }}</p>
   {% endif %}
   <div class="mb-3">
     <label class="form-label" for="mail-subject">{{ t('mail_subject') }}</label>

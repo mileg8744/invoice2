@@ -395,3 +395,22 @@ def generate_invoice_pdf(invoice, output_path: Path) -> Path:
     c.save()
     output_path.write_bytes(buf.getvalue())
     return output_path
+
+
+def merge_pdf_files(paths) -> bytes:
+    """Concatenate existing invoice PDFs into one file (page order preserved)."""
+    from pypdf import PdfReader, PdfWriter
+
+    writer = PdfWriter()
+    for raw in paths or []:
+        path = Path(raw) if raw else None
+        if not path or not path.exists():
+            continue
+        reader = PdfReader(str(path))
+        for page in reader.pages:
+            writer.add_page(page)
+    if not writer.pages:
+        return b""
+    out = BytesIO()
+    writer.write(out)
+    return out.getvalue()

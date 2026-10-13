@@ -34,8 +34,8 @@
         <label class="form-label">{{ t('unit_krw_usd') }}</label>
         <input class="form-control js-krw" type="text" inputmode="numeric" name="unit_price_krw" value="{{ '{:,}'.format(row.unit_price_krw) if row else '0' }}" required>
         <div class="money-dual unit-fx-live">
-          <div class="krw">KRW <b id="unitKrwLive">0</b></div>
           <div class="usd js-fx-cell" id="unitUsdLive" data-fx-krw="0">{{ t('fx_need_rate') }}</div>
+          <div class="krw">KRW <b id="unitKrwLive">0</b></div>
         </div>
       </div>
       <div class="col-md-6">
