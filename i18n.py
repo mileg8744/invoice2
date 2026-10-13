@@ -144,7 +144,7 @@ TRANSLATIONS = {
         "issue": "발행",
         "download_pdf": "PDF 다운로드",
         "remind": "리마인드 메일 재전송",
-        "acknowledge": "확인 완료 / Acknowledge",
+        "acknowledge": "확인 완료 / Confirm",
         "mark_paid": "입금 완료 처리",
         "payment_date": "입금일",
         "memo": "메모",
