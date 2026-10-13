@@ -277,20 +277,29 @@ def generate_invoice_pdf(invoice, output_path: Path) -> Path:
 
     y -= 7 * mm
     total_x = margin + content_w
-    label_x = total_x - 62 * mm
+    vat_amount = _money(cur, 0)
+    due_amount = _money(cur, invoice.amount_fx)
+    due_label = "TOTAL AMOUNT DUE (NET)"
+    amount_col_w = 48 * mm
+    label_col_w = 62 * mm
+    col_gap = 10 * mm
+    block_left = total_x - (label_col_w + col_gap + amount_col_w)
     c.setFillColor(MUTED)
     c.setFont(FONT, 8)
-    c.drawString(label_x, y, "VAT (Exempt)")
-    c.drawRightString(total_x, y, _money(cur, 0))
-    y -= 6.2 * mm
+    c.drawString(block_left, y, "VAT (Exempt)")
+    c.drawRightString(total_x, y, vat_amount)
+    y -= 6.4 * mm
     c.setStrokeColor(NAVY)
     c.setLineWidth(0.7)
-    c.line(label_x, y + 3.4 * mm, total_x, y + 3.4 * mm)
+    c.line(block_left, y + 3.6 * mm, total_x, y + 3.6 * mm)
     c.setFillColor(NAVY)
-    c.setFont(FONT_BOLD, 9.5)
-    c.drawString(label_x, y, "TOTAL AMOUNT DUE (NET)")
+    label_size = 9
+    while label_size > 7 and _width(due_label, FONT_BOLD, label_size) > label_col_w:
+        label_size -= 0.5
+    c.setFont(FONT_BOLD, label_size)
+    c.drawString(block_left, y, due_label)
     c.setFont(FONT_BOLD, 11)
-    c.drawRightString(total_x, y, _money(cur, invoice.amount_fx))
+    c.drawRightString(total_x, y, due_amount)
 
     y -= 12 * mm
     c.setFillColor(NAVY)

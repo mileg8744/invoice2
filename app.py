@@ -3160,7 +3160,10 @@ def create_app():
             return redirect(url_for("invoices"))
         path = rebuild_pdf(row)
         db.commit()
-        return send_file(path, as_attachment=True, download_name=f"{row.invoice_no}.pdf")
+        resp = send_file(path, as_attachment=True, download_name=f"{row.invoice_no}.pdf")
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+        return resp
 
     @app.route("/invoices/template")
     @admin_required
