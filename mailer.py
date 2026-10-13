@@ -532,6 +532,14 @@ def send_invoice_email(
 
 
 def send_test_email(to_addr: str) -> dict:
+    try:
+        return _send_test_email(to_addr)
+    except Exception as exc:  # noqa: BLE001
+        log.error("Test mail failed: %s", sanitize_mail_error(str(exc)))
+        return {"ok": False, "error": "smtp_send_failed", "recipients": [], "to": [], "cc": []}
+
+
+def _send_test_email(to_addr: str) -> dict:
     to_recipients = parse_emails(to_addr)
     if not to_recipients:
         return {"ok": False, "error": "no_email", "recipients": [], "to": [], "cc": []}
@@ -548,13 +556,16 @@ def send_test_email(to_addr: str) -> dict:
       </div>
     </div>
     """
-    OUTBOX_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_file = OUTBOX_DIR / f"gmail_test_{stamp}.html"
-    out_file.write_text(
-        f"<!-- To: {', '.join(to_recipients)} -->\n<!-- Subject: {subject} -->\n{body_html}",
-        encoding="utf-8",
-    )
+    try:
+        OUTBOX_DIR.mkdir(parents=True, exist_ok=True)
+        out_file.write_text(
+            f"<!-- To: {', '.join(to_recipients)} -->\n<!-- Subject: {subject} -->\n{body_html}",
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        log.warning("Test mail outbox write failed: %s", sanitize_mail_error(str(exc)))
     return _deliver(
         subject=subject,
         html=body_html,
@@ -616,7 +627,7 @@ def _deliver(
         log.error("Unexpected mail send error: %s", sanitize_mail_error(str(exc)))
         return {
             "ok": False,
-            "error": "Gmail SMTP send failed",
+            "error": "smtp_send_failed",
             "recipients": recipients,
             "to": to_recipients,
             "cc": cc_recipients,

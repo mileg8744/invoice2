@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import socket
 import smtplib
 import ssl
 from email.message import EmailMessage
@@ -23,6 +24,7 @@ _MAIL_DICT_KEYS = {
     "MAIL_PASSWORD": ("MAIL_PASSWORD", "password", "PASSWORD"),
     "MAIL_FROM": ("MAIL_FROM", "from", "sender", "email"),
     "MAIL_FROM_NAME": ("MAIL_FROM_NAME", "from_name", "name", "display"),
+    "MAIL_USE_TLS": ("MAIL_USE_TLS", "use_tls", "tls", "STARTTLS"),
 }
 
 
@@ -109,6 +111,37 @@ def smtp_password() -> str:
     return re.sub(r"\s+", "", _mail_val("MAIL_PASSWORD"))
 
 
+def _on_render() -> bool:
+    return (os.environ.get("RENDER") or "").strip().lower() in {"1", "true", "yes"}
+
+
+def _smtp_timeout() -> int:
+    return 8 if _on_render() else 30
+
+
+def mail_use_tls() -> bool:
+    raw = _mail_val("MAIL_USE_TLS").lower()
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    return True
+
+
+def _classify_os_error(exc: BaseException) -> str:
+    if isinstance(exc, (TimeoutError, socket.timeout)):
+        return "smtp_timeout"
+    if isinstance(exc, ConnectionRefusedError):
+        return "smtp_port_blocked"
+    text = str(exc).lower()
+    if "timed out" in text or "timeout" in text:
+        return "smtp_timeout"
+    errno = getattr(exc, "errno", None)
+    if errno in {101, 110, 111, 113, 10060, 10061}:
+        return "smtp_port_blocked"
+    if "connection refused" in text or "network is unreachable" in text:
+        return "smtp_port_blocked"
+    return "smtp_connect_failed"
+
+
 def smtp_configured() -> bool:
     try:
         try:
@@ -162,41 +195,62 @@ def _build_message(
 
 def _try_send(msg: EmailMessage, host: str, user: str, password: str, sender: str, recipients: list[str]) -> None:
     ctx = ssl.create_default_context()
-    last_error = None
+    timeout = _smtp_timeout()
+    last_code = "smtp_connect_failed"
+    render = _on_render()
+
+    def note_connect(port: int, exc: BaseException) -> None:
+        nonlocal last_code
+        last_code = _classify_os_error(exc)
+        log.warning(
+            "SMTP connect failed host=%s port=%s timeout=%ss render=%s class=%s code=%s detail=%s",
+            host,
+            port,
+            timeout,
+            render,
+            exc.__class__.__name__,
+            last_code,
+            sanitize_mail_error(str(exc)),
+        )
+        if render and last_code in {"smtp_timeout", "smtp_port_blocked", "smtp_connect_failed"}:
+            log.warning(
+                "Render free web services often block outbound SMTP ports 25/465/587; this is a network restriction, not an App Password parse error"
+            )
+
+    if mail_use_tls():
+        try:
+            with smtplib.SMTP(host, 587, timeout=timeout) as smtp:
+                smtp.ehlo()
+                smtp.starttls(context=ctx)
+                smtp.ehlo()
+                smtp.login(user, password)
+                smtp.sendmail(sender, recipients, msg.as_bytes())
+            log.info("Gmail SMTP accepted via 587 STARTTLS: to_count=%s", len(recipients))
+            return
+        except smtplib.SMTPAuthenticationError:
+            log.error("Gmail SMTP authentication failed via 587 STARTTLS")
+            raise
+        except smtplib.SMTPRecipientsRefused as exc:
+            log.error("Gmail rejected recipients via 587: %s", sanitize_mail_error(str(exc)))
+            raise SmtpMailError("smtp_recipient_refused") from None
+        except (smtplib.SMTPException, OSError) as exc:
+            note_connect(587, exc)
 
     try:
-        with smtplib.SMTP(host, 587, timeout=30) as smtp:
-            smtp.ehlo()
-            smtp.starttls(context=ctx)
-            smtp.ehlo()
-            smtp.login(user, password)
-            smtp.sendmail(sender, recipients, msg.as_bytes())
-        log.info("Gmail SMTP accepted via 587 STARTTLS: to_count=%s", len(recipients))
-        return
-    except smtplib.SMTPAuthenticationError:
-        raise
-    except smtplib.SMTPRecipientsRefused as exc:
-        log.error("Gmail rejected recipients: %s", sanitize_mail_error(str(exc)))
-        raise SmtpMailError("smtp_recipient_refused") from None
-    except (smtplib.SMTPException, OSError) as exc:
-        last_error = exc
-        log.warning("Gmail SMTP 587 failed: %s", sanitize_mail_error(str(exc)))
-
-    try:
-        with smtplib.SMTP_SSL(host, 465, timeout=30, context=ctx) as smtp:
+        with smtplib.SMTP_SSL(host, 465, timeout=timeout, context=ctx) as smtp:
             smtp.ehlo()
             smtp.login(user, password)
             smtp.sendmail(sender, recipients, msg.as_bytes())
         log.info("Gmail SMTP accepted via 465 SSL: to_count=%s", len(recipients))
         return
     except smtplib.SMTPAuthenticationError:
+        log.error("Gmail SMTP authentication failed via 465 SSL")
         raise
     except smtplib.SMTPRecipientsRefused:
         raise SmtpMailError("smtp_recipient_refused") from None
     except (smtplib.SMTPException, OSError) as exc:
-        log.warning("Gmail SMTP 465 failed: %s", sanitize_mail_error(str(exc)))
-        detail = sanitize_mail_error(str(last_error or exc))
-        raise SmtpMailError(detail or "Gmail SMTP connection failed") from None
+        note_connect(465, exc)
+        raise SmtpMailError(last_code) from None
 
 
 def send_smtp_mail(
@@ -235,15 +289,24 @@ def send_smtp_mail(
     recipients = to_list + cc_list
 
     try:
+        log.info(
+            "SMTP send start host=%s from_set=%s user_set=%s to_count=%s render=%s",
+            host,
+            bool(sender),
+            bool(user),
+            len(recipients),
+            _on_render(),
+        )
         _try_send(msg, host, user, smtp_password(), envelope_from, recipients)
     except smtplib.SMTPAuthenticationError:
-        log.error("Gmail SMTP login failed")
+        log.error("Gmail SMTP login failed (App Password or 2-Step Verification)")
         raise SmtpMailError("smtp_auth_failed") from None
     except SmtpMailError:
         raise
     except smtplib.SMTPException as exc:
         log.error("Gmail SMTP send failed: %s", sanitize_mail_error(str(exc)))
-        raise SmtpMailError(f"Gmail SMTP send failed ({exc.__class__.__name__})") from None
-    except OSError:
-        log.error("Gmail SMTP connection failed")
-        raise SmtpMailError("Gmail SMTP connection failed") from None
+        raise SmtpMailError("smtp_send_failed") from None
+    except OSError as exc:
+        code = _classify_os_error(exc)
+        log.error("Gmail SMTP connection failed code=%s", code)
+        raise SmtpMailError(code) from None

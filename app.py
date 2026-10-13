@@ -487,8 +487,10 @@ def create_app():
                 flash(t("mail_body_required"), "danger")
             elif err == "smtp_recipient_refused":
                 flash(t("smtp_recipient_refused"), "danger")
+            elif err in ("smtp_timeout", "smtp_port_blocked", "smtp_connect_failed", "smtp_send_failed"):
+                flash(t(err), "danger")
             else:
-                flash(f"{t('mail_send_fail')} {err}".strip(), "danger")
+                flash(t("mail_send_fail"), "danger")
             return False
         flash(t(success_key), "success")
         to_list = mail.get("to") or mail.get("recipients") or []
@@ -975,20 +977,30 @@ def create_app():
                 return redirect(url_for("hq_settings"))
         return render_template("settings.html", hq=hq, stamp_exists=STAMP_PATH.exists())
 
-    @app.route("/settings/mail/test", methods=["POST"])
+    @app.route("/settings/mail/test", methods=["GET", "POST"])
     @admin_required
     def mail_test():
+        if request.method != "POST":
+            return redirect(url_for("hq_settings"))
         db = Session()
-        mail = send_test_email(request.form.get("test_to") or "")
-        flash_mail_result(mail, "mail_test_ok")
-        log_action(
-            db,
-            "settings",
-            "mail",
-            "TEST",
-            mail_log_detail(mail) if mail.get("ok") else (mail.get("error") or "fail"),
-        )
-        db.commit()
+        try:
+            mail = send_test_email(request.form.get("test_to") or "")
+            flash_mail_result(mail, "mail_test_ok")
+            log_action(
+                db,
+                "settings",
+                "mail",
+                "TEST",
+                mail_log_detail(mail) if mail.get("ok") else (mail.get("error") or "fail"),
+            )
+            db.commit()
+        except Exception:
+            logging.getLogger("pgu.mail").exception("Test mail route failed")
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            flash(t("mail_send_fail"), "danger")
         return redirect(url_for("hq_settings"))
 
     # ---------- subsidiaries ----------
