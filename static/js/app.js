@@ -126,7 +126,9 @@ function bindBulkInvoiceActions() {
   const boxes = () => [...document.querySelectorAll(".js-invoice-check")];
   const needed = (kind) => {
     const selected = boxes().filter((el) => el.checked);
-    if (kind === "remind") return selected.filter((el) => el.dataset.status === "issued");
+    if (kind === "remind") {
+      return selected.filter((el) => ["draft", "issued", "acknowledged"].includes(el.dataset.status));
+    }
     if (kind === "issue") return selected.filter((el) => el.dataset.status === "draft");
     return selected;
   };

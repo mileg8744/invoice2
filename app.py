@@ -2966,7 +2966,7 @@ def create_app():
             return redirect(url_for("invoices", **request.args))
         rows = (
             db.query(Invoice)
-            .filter(Invoice.id.in_(ids), Invoice.status == "issued")
+            .filter(Invoice.id.in_(ids), Invoice.status.in_(("draft", "issued", "acknowledged")))
             .order_by(Invoice.year.asc(), Invoice.half.asc(), Invoice.seq.asc())
             .all()
         )
@@ -2974,8 +2974,12 @@ def create_app():
             flash(t("bulk_remind_none"), "warning")
             return redirect(url_for("invoices", **request.args))
         if request.form.get("compose_ready") != "1":
+            for row in rows:
+                if row.status == "draft":
+                    apply_training_headcounts(db, row)
+            db.commit()
             return render_mail_compose(
-                "remind",
+                "issue",
                 rows,
                 url_for("invoices_bulk_remind", **request.args),
                 url_for("invoices", **request.args),
@@ -2986,16 +2990,17 @@ def create_app():
         sent = failed = skipped = 0
         via = "outbox"
         for row in rows:
-            to_list, cc_list = parse_compose_recipients(request.form, row, "remind")
+            to_list, cc_list = parse_compose_recipients(request.form, row, "issue")
             if not to_list:
                 skipped += 1
                 continue
             try:
-                path = rebuild_pdf(row)
+                was_draft = row.status == "draft"
+                path = mark_invoice_issued(db, row)
                 mail = send_invoice_email(
                     row,
                     path,
-                    kind="remind",
+                    kind="issue",
                     subject=subject,
                     body_text=body_text,
                     to_recipients=to_list,
@@ -3005,7 +3010,13 @@ def create_app():
                     sent += 1
                     if mail.get("via") == "smtp":
                         via = "smtp"
-                    log_action(db, "invoice", row.invoice_no, "REMIND", mail_log_detail(mail))
+                    log_action(
+                        db,
+                        "invoice",
+                        row.invoice_no,
+                        "ISSUE" if was_draft else "SEND",
+                        mail_log_detail(mail),
+                    )
                 else:
                     failed += 1
             except Exception:
@@ -3040,63 +3051,13 @@ def create_app():
         if not rows:
             flash(t("bulk_issue_none"), "warning")
             return redirect(url_for("invoices", **request.args))
-        if request.form.get("compose_ready") != "1":
-            for row in rows:
-                apply_training_headcounts(db, row)
-            db.commit()
-            return render_mail_compose(
-                "issue",
-                rows,
-                url_for("invoices_bulk_issue", **request.args),
-                url_for("invoices", **request.args),
-                fill=False,
-            )
-        subject = request.form.get("mail_subject")
-        body_text = request.form.get("mail_body")
-        sent = failed = skipped = 0
-        via = "outbox"
+        issued = 0
         for row in rows:
-            to_list, cc_list = parse_compose_recipients(request.form, row, "issue")
-            if not to_list:
-                skipped += 1
-                continue
-            try:
-                apply_training_headcounts(db, row)
-                snapshot_invoice_party(row)
-                path = rebuild_pdf(row)
-                mail = send_invoice_email(
-                    row,
-                    path,
-                    kind="issue",
-                    subject=subject,
-                    body_text=body_text,
-                    to_recipients=to_list,
-                    cc_recipients=cc_list,
-                )
-                if mail.get("ok"):
-                    sent += 1
-                    if mail.get("via") == "smtp":
-                        via = "smtp"
-                    row.status = "issued"
-                    row.issued_at = utcnow()
-                    row.issued_by = current_user().username
-                    row.document_date = date.today()
-                    log_action(db, "invoice", row.invoice_no, "ISSUE", mail_log_detail(mail))
-                else:
-                    failed += 1
-            except Exception:
-                failed += 1
+            mark_invoice_issued(db, row)
+            log_action(db, "invoice", row.invoice_no, "ISSUE", current_user().username)
+            issued += 1
         db.commit()
-        if sent:
-            flash(f"{t('bulk_issue_ok')} {sent}{t('rows')}", "success")
-            if via == "outbox":
-                flash(t("email_saved_outbox"), "info")
-        if skipped:
-            flash(f"{t('no_email')} {skipped}{t('rows')}", "warning")
-        if failed:
-            flash(f"{t('hq_bulk_fail')} {failed}{t('rows')}", "warning")
-        if not sent and not failed and not skipped:
-            flash(t("bulk_issue_none"), "warning")
+        flash(f"{t('bulk_issue_ok')} {issued}{t('rows')}", "success")
         return redirect(url_for("invoices", **request.args))
 
     @app.route("/invoices/bulk-delete", methods=["POST"])
