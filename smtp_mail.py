@@ -161,6 +161,22 @@ def smtp_configured() -> bool:
         return False
 
 
+def _attachment_types(filename: str) -> tuple[str, str]:
+    name = (filename or "").lower()
+    if name.endswith(".pptx"):
+        return "application", "vnd.openxmlformats-officedocument.presentationml.presentation"
+    if name.endswith(".pdf"):
+        return "application", "pdf"
+    return "application", "octet-stream"
+
+
+def _add_file_attachment(msg: EmailMessage, data: bytes | None, filename: str) -> None:
+    if not data:
+        return
+    maintype, subtype = _attachment_types(filename)
+    msg.add_attachment(data, maintype=maintype, subtype=subtype, filename=filename or "file.bin")
+
+
 def _build_message(
     *,
     subject: str,
@@ -172,6 +188,7 @@ def _build_message(
     pdf_bytes: bytes | None,
     pdf_name: str,
     plain: str,
+    extra_attachments=None,
 ) -> EmailMessage:
     msg = EmailMessage()
     msg["From"] = formataddr((display, sender)) if display else sender
@@ -183,13 +200,12 @@ def _build_message(
     msg["Message-ID"] = make_msgid(domain=sender.split("@")[-1] if "@" in sender else "localhost")
     msg.set_content(plain or "Please view this message in HTML.")
     msg.add_alternative(html, subtype="html")
-    if pdf_bytes:
-        msg.add_attachment(
-            pdf_bytes,
-            maintype="application",
-            subtype="pdf",
-            filename=pdf_name or "invoice.pdf",
-        )
+    _add_file_attachment(msg, pdf_bytes, pdf_name or "invoice.pdf")
+    for item in extra_attachments or []:
+        if not item:
+            continue
+        data, name = item
+        _add_file_attachment(msg, data, name)
     return msg
 
 
@@ -262,6 +278,7 @@ def send_smtp_mail(
     pdf_bytes: bytes | None = None,
     pdf_name: str = "invoice.pdf",
     plain: str = "",
+    extra_attachments=None,
 ) -> None:
     if not smtp_configured():
         raise SmtpMailError("smtp_not_configured")
@@ -284,6 +301,7 @@ def send_smtp_mail(
         pdf_bytes=pdf_bytes,
         pdf_name=pdf_name,
         plain=plain,
+        extra_attachments=extra_attachments,
     )
     envelope_from = user or sender
     recipients = to_list + cc_list

@@ -42,7 +42,7 @@ from mailer import (
 from smtp_mail import mail_from_address, smtp_configured
 from models import AuditLog, Base, Invoice, InvoiceItem, Subsidiary, Training, User, utcnow
 from pdf_invoice import generate_invoice_pdf, merge_pdf_files
-from ppt_invoice import generate_invoice_ppt
+from ppt_invoice import generate_invoice_ppt, pdf_bytes_to_pptx
 from regions import REGIONS, apply_region, resolve_region
 from entity_types import ENTITY_TYPES, entity_type_label, resolve_entity_type
 from seed import seed_if_empty
@@ -588,6 +588,7 @@ def create_app():
             cc_parts.extend(cc_list)
         to_choices = list(dict.fromkeys(to_parts))
         cc_choices = [e for e in dict.fromkeys(cc_parts) if e.lower() not in {x.lower() for x in to_choices}]
+        attach_pdf, attach_ppt = parse_attach_formats()
         return render_template(
             "invoices/compose.html",
             kind=kind,
@@ -604,6 +605,8 @@ def create_app():
             placeholders=mail_placeholder_help(),
             bulk=len(rows) > 1,
             include_bank=parse_show_bank(),
+            attach_pdf=attach_pdf,
+            attach_ppt=attach_ppt,
         )
 
     EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
@@ -689,6 +692,15 @@ def create_app():
         if raw is None:
             return invoice_show_bank() if default is None else bool(default)
         return str(raw).strip().lower() not in {"0", "off", "false", "no"}
+
+    def parse_attach_formats():
+        if request.form.get("attach_format_ready") == "1":
+            attach_pdf = request.form.get("attach_pdf") in {"1", "on", "true"}
+            attach_ppt = request.form.get("attach_ppt") in {"1", "on", "true"}
+            if not attach_pdf and not attach_ppt:
+                attach_pdf = True
+            return attach_pdf, attach_ppt
+        return True, False
 
     def rebuild_pdf(invoice, show_bank=None):
         if show_bank is None:
@@ -3174,34 +3186,51 @@ def create_app():
         subject = request.form.get("mail_subject")
         body_text = request.form.get("mail_body")
         show_bank = parse_show_bank()
+        attach_pdf, attach_ppt = parse_attach_formats()
         paths = []
         for row in rows:
             try:
                 paths.append(rebuild_pdf(row, show_bank=show_bank))
             except Exception:
                 log_action(db, "invoice", row.invoice_no, "HQ_COPY", "pdf_rebuild_failed")
-        pdf_bytes = merge_pdf_files(paths)
-        if not pdf_bytes:
+        merged_pdf = merge_pdf_files(paths)
+        if not merged_pdf:
             flash(t("hq_bulk_fail"), "danger")
             db.commit()
             return redirect(url_for("invoices", **request.args))
         stamp = date.today().strftime("%Y%m%d")
+        extra = []
+        if attach_ppt:
+            try:
+                ppt_path = PDF_DIR / f"PGU_invoices_{stamp}.pptx"
+                pdf_bytes_to_pptx(merged_pdf, ppt_path)
+                extra.append((ppt_path.read_bytes(), f"PGU_invoices_{stamp}.pptx"))
+            except Exception:
+                log_action(db, "invoice", "HQ_COPY", "HQ_COPY", "ppt_build_failed")
+                flash(t("hq_bulk_ppt_fail"), "warning")
+                if not attach_pdf:
+                    attach_pdf = True
+        pdf_bytes = merged_pdf if attach_pdf else None
+        pdf_name = f"PGU_invoices_{stamp}.pdf"
         mail = send_combined_pdf_email(
             invoices=rows,
             pdf_bytes=pdf_bytes,
-            pdf_name=f"PGU_invoices_{stamp}.pdf",
+            pdf_name=pdf_name,
             subject=subject,
             body_text=body_text,
             to_recipients=hq_copy_emails(),
             kind="hq",
+            extra_attachments=extra or None,
         )
         flash_mail_result(mail, "hq_bulk_ok", commit=False)
+        if mail.get("ok") and attach_ppt and extra:
+            flash(t("hq_bulk_ppt_ok"), "info")
         log_action(
             db,
             "invoice",
             "HQ_COPY",
             "HQ_COPY" if mail.get("ok") else "HQ_COPY_FAIL",
-            f"combined={len(rows)};{mail_audit_detail(mail)}",
+            f"combined={len(rows)};pdf={int(bool(pdf_bytes))};ppt={int(bool(extra))};{mail_audit_detail(mail)}",
         )
         db.commit()
         return redirect(url_for("invoices", **request.args))

@@ -594,12 +594,13 @@ def wrap_combined_html(invoices, headline: str, body_text: str) -> str:
 def send_combined_pdf_email(
     *,
     invoices,
-    pdf_bytes: bytes,
+    pdf_bytes: bytes | None,
     pdf_name: str,
     subject: str,
     body_text: str,
     to_recipients=None,
     kind: str = "hq",
+    extra_attachments=None,
 ) -> dict:
     to_list = [e for e in (to_recipients if to_recipients is not None else hq_copy_emails()) if e]
     if not to_list:
@@ -623,8 +624,14 @@ def send_combined_pdf_email(
         )
         if pdf_bytes:
             (OUTBOX_DIR / f"combined_hq_{stamp}.pdf").write_bytes(pdf_bytes)
-    except OSError as exc:
-        log.warning("Combined mail outbox write failed: %s", sanitize_mail_error(str(exc)))
+        for item in extra_attachments or []:
+            if not item:
+                continue
+            data, name = item
+            if data and name:
+                (OUTBOX_DIR / Path(name).name).write_bytes(data)
+    except OSError as extra_exc:
+        log.warning("Combined mail outbox write failed: %s", sanitize_mail_error(str(extra_exc)))
     return _deliver(
         subject=subject,
         html=body_html,
@@ -635,6 +642,7 @@ def send_combined_pdf_email(
         out_file=out_file,
         recipients=to_list,
         plain=body_text,
+        extra_attachments=extra_attachments,
     )
 
 
@@ -697,6 +705,7 @@ def _deliver(
     out_file: Path,
     recipients: list[str],
     plain: str = "",
+    extra_attachments=None,
 ) -> dict:
     if not smtp_configured():
         log.error("Invoice email not sent: Gmail SMTP env vars are missing")
@@ -719,6 +728,7 @@ def _deliver(
             pdf_bytes=pdf_bytes,
             pdf_name=pdf_name,
             plain=plain,
+            extra_attachments=extra_attachments,
         )
     except SmtpMailError as exc:
         return {

@@ -16,6 +16,12 @@
         <input type="checkbox" name="invoice_show_bank" value="1" {% if invoice_show_bank %}checked{% endif %}>
         {{ t('include_bank') }}
       </label>
+      <input type="hidden" name="attach_format_ready" value="1">
+      <input type="hidden" name="attach_pdf" value="1">
+      <label class="dl-bank-opt">
+        <input type="checkbox" name="attach_ppt" value="1">
+        {{ t('attach_ppt') }}
+      </label>
       <button class="btn btn-outline-navy" type="submit"><i class="bi bi-envelope"></i> {{ t('hq_bulk_send') }}</button>
     </form>
     <a class="btn btn-navy" href="{{ url_for('invoice_new_period', year=period.year, half=period.half) }}"><i class="bi bi-plus"></i> {{ t('create_invoice') }}</a>

@@ -20,6 +20,18 @@ def generate_invoice_ppt(invoice, output_path: Path, show_bank: bool = True) -> 
     return output_path
 
 
+def pdf_bytes_to_pptx(pdf_bytes: bytes, output_path: Path) -> Path:
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if not pdf_bytes:
+        raise ValueError("empty pdf")
+    with tempfile.TemporaryDirectory() as tmp:
+        pdf_path = Path(tmp) / "source.pdf"
+        pdf_path.write_bytes(pdf_bytes)
+        _pdf_pages_to_pptx(pdf_path, output_path)
+    return output_path
+
+
 def _pdf_pages_to_pptx(pdf_path: Path, output_path: Path) -> None:
     import pypdfium2 as pdfium
 

@@ -70,6 +70,20 @@
     </label>
     <p class="muted mt-1 mb-0">{{ t('include_bank_mail_hint') }}</p>
   </div>
+  {% if kind == 'hq' %}
+  <input type="hidden" name="attach_format_ready" value="1">
+  <div class="mb-3">
+    <label class="dl-bank-opt me-3">
+      <input type="checkbox" name="attach_pdf" value="1" {% if attach_pdf %}checked{% endif %}>
+      {{ t('attach_pdf') }}
+    </label>
+    <label class="dl-bank-opt">
+      <input type="checkbox" name="attach_ppt" value="1" {% if attach_ppt %}checked{% endif %}>
+      {{ t('attach_ppt') }}
+    </label>
+    <p class="muted mt-1 mb-0">{{ t('attach_ppt_hint') }}</p>
+  </div>
+  {% endif %}
   <div class="mb-3">
     <label class="form-label" for="mail-subject">{{ t('mail_subject') }}</label>
     <input class="form-control" id="mail-subject" name="mail_subject" value="{{ draft.subject }}" required>
