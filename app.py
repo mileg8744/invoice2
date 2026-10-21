@@ -575,7 +575,7 @@ def create_app():
                 flash(t("mail_body_required"), "danger")
             elif err == "smtp_recipient_refused":
                 flash(t("smtp_recipient_refused"), "danger")
-            elif err in ("smtp_timeout", "smtp_port_blocked", "smtp_connect_failed", "smtp_send_failed"):
+            elif err in ("smtp_timeout", "smtp_port_blocked", "smtp_connect_failed", "smtp_send_failed", "smtp_too_large"):
                 flash(t(err), "danger")
             else:
                 flash(t("mail_send_fail"), "danger")
@@ -3207,13 +3207,16 @@ def create_app():
         flash(f"{t('bulk_delete_ok')} {deleted}{t('rows')}", "success")
         return redirect(invoices_return_url())
 
-    @app.route("/invoices/hq-copy", methods=["POST"])
+    @app.route("/invoices/hq-copy", methods=["GET", "POST"])
     @admin_required
     def invoices_hq_copy():
         db = Session()
         back = invoices_return_url()
         extra = period_hidden_fields()
         qargs = {**request.args.to_dict(flat=True), **{k: v for k, v in extra.items()}}
+        if request.method == "GET":
+            flash(t("hq_bulk_need_period"), "warning")
+            return redirect(back)
         if not hq_copy_emails():
             flash(t("hq_bulk_none"), "danger")
             return redirect(back)
@@ -3221,12 +3224,14 @@ def create_app():
         year, half = request_year_half()
         nxt = (request.form.get("next") or request.args.get("next") or "").strip()
         if request.form.get("compose_ready") == "1" and ids:
-            rows = (
-                db.query(Invoice)
-                .filter(Invoice.id.in_(ids), Invoice.status != "draft")
-                .order_by(Invoice.year.asc(), Invoice.half.asc(), Invoice.seq.asc())
-                .all()
-            )
+            q = db.query(Invoice).filter(Invoice.id.in_(ids), Invoice.status != "draft")
+            if year and half in (1, 2):
+                q = q.filter(Invoice.year == year, Invoice.half == half)
+            rows = q.order_by(Invoice.year.asc(), Invoice.half.asc(), Invoice.seq.asc()).all()
+            periods = {(row.year, row.half) for row in rows}
+            if nxt != "collections" and len(periods) > 1:
+                flash(t("hq_bulk_need_period"), "warning")
+                return redirect(back)
         else:
             if nxt != "collections" and not (year and half in (1, 2)):
                 flash(t("hq_bulk_need_period"), "warning")
@@ -3274,17 +3279,25 @@ def create_app():
                 return redirect(back)
             stamp = date.today().strftime("%Y%m%d")
             extra_files = []
+            gmail_limit = 18 * 1024 * 1024
             if attach_ppt:
                 try:
                     ppt_path = PDF_DIR / f"PGU_invoices_{stamp}.pptx"
                     pdf_bytes_to_pptx(merged_pdf, ppt_path)
-                    extra_files.append((ppt_path.read_bytes(), f"PGU_invoices_{stamp}.pptx"))
+                    ppt_bytes = ppt_path.read_bytes()
+                    if len(merged_pdf) + len(ppt_bytes) > gmail_limit:
+                        raise ValueError("ppt too large")
+                    extra_files.append((ppt_bytes, f"PGU_invoices_{stamp}.pptx"))
                 except Exception:
                     log_action(db, "invoice", "HQ_COPY", "HQ_COPY", "ppt_build_failed")
                     flash(t("hq_bulk_ppt_fail"), "warning")
                     if not attach_pdf:
                         attach_pdf = True
             pdf_bytes = merged_pdf if attach_pdf else None
+            if pdf_bytes and len(pdf_bytes) + sum(len(item[0] or b"") for item in extra_files) > gmail_limit:
+                flash(t("hq_bulk_too_large"), "danger")
+                db.commit()
+                return redirect(back)
             pdf_name = f"PGU_invoices_{stamp}.pdf"
             mail = send_combined_pdf_email(
                 invoices=rows,

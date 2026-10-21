@@ -249,6 +249,8 @@ def _try_send(msg: EmailMessage, host: str, user: str, password: str, sender: st
         except smtplib.SMTPRecipientsRefused as exc:
             log.error("Gmail rejected recipients via 587: %s", sanitize_mail_error(str(exc)))
             raise SmtpMailError("smtp_recipient_refused") from None
+        except smtplib.SMTPDataError:
+            raise
         except (smtplib.SMTPException, OSError) as exc:
             note_connect(587, exc)
 
@@ -264,6 +266,8 @@ def _try_send(msg: EmailMessage, host: str, user: str, password: str, sender: st
         raise
     except smtplib.SMTPRecipientsRefused:
         raise SmtpMailError("smtp_recipient_refused") from None
+    except smtplib.SMTPDataError:
+        raise
     except (smtplib.SMTPException, OSError) as exc:
         note_connect(465, exc)
         raise SmtpMailError(last_code) from None
@@ -321,6 +325,13 @@ def send_smtp_mail(
         raise SmtpMailError("smtp_auth_failed") from None
     except SmtpMailError:
         raise
+    except smtplib.SMTPDataError as exc:
+        text = str(exc).lower()
+        if getattr(exc, "smtp_code", 0) in {552, 552} or "size" in text or "limit" in text:
+            log.error("Gmail rejected the message as too large")
+            raise SmtpMailError("smtp_too_large") from None
+        log.error("Gmail SMTP send failed: %s", sanitize_mail_error(str(exc)))
+        raise SmtpMailError("smtp_send_failed") from None
     except smtplib.SMTPException as exc:
         log.error("Gmail SMTP send failed: %s", sanitize_mail_error(str(exc)))
         raise SmtpMailError("smtp_send_failed") from None

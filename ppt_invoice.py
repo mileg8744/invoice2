@@ -40,13 +40,16 @@ def _pdf_pages_to_pptx(pdf_path: Path, output_path: Path) -> None:
     prs.slide_height = Mm(297)
     blank = prs.slide_layouts[6]
     pdf = pdfium.PdfDocument(str(pdf_path))
-    for index in range(len(pdf)):
-        page = pdf[index]
-        bitmap = page.render(scale=2.4)
-        image = bitmap.to_pil()
-        buf = BytesIO()
-        image.save(buf, format="PNG")
-        buf.seek(0)
-        slide = prs.slides.add_slide(blank)
-        slide.shapes.add_picture(buf, Emu(0), Emu(0), width=prs.slide_width, height=prs.slide_height)
+    try:
+        for index in range(len(pdf)):
+            page = pdf[index]
+            bitmap = page.render(scale=1.6)
+            image = bitmap.to_pil().convert("RGB")
+            buf = BytesIO()
+            image.save(buf, format="JPEG", quality=72, optimize=True)
+            buf.seek(0)
+            slide = prs.slides.add_slide(blank)
+            slide.shapes.add_picture(buf, Emu(0), Emu(0), width=prs.slide_width, height=prs.slide_height)
+    finally:
+        pdf.close()
     prs.save(str(output_path))
