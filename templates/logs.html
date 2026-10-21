@@ -16,7 +16,7 @@
       <tr>
         <td class="mono">{{ log.created_at | dt }}</td>
         <td>{{ log.username }}</td>
-        <td>{{ log.entity_type }} / {{ log.action }} / {{ log.entity_id }}</td>
+        <td>{{ audit_action_label(log.action) }}<div class="tiny">{{ log.entity_type }} {{ log.entity_id }}</div></td>
         <td>{{ log.details }}</td>
       </tr>
       {% else %}

@@ -100,6 +100,15 @@
         <label class="form-label">{{ t('bank_swift') }}</label>
         <input class="form-control" name="bank_swift" value="{{ hq.BANK_SWIFT }}">
       </div>
+      <div class="col-12">
+        <label class="form-check-label d-flex align-items-start gap-2 mt-2">
+          <input class="form-check-input mt-1" type="checkbox" name="invoice_show_bank" value="1" {% if hq.INVOICE_SHOW_BANK %}checked{% endif %}>
+          <span>
+            {{ t('invoice_show_bank') }}
+            <span class="muted d-block">{{ t('invoice_show_bank_hint') }}</span>
+          </span>
+        </label>
+      </div>
     </div>
     <div class="mt-4">
       <button class="btn btn-navy" type="submit">{{ t('save') }}</button>

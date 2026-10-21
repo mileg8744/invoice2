@@ -46,6 +46,7 @@ class Config:
     BANK_ACCOUNT_NAME = "POSCO Group University"
     BANK_ACCOUNT_NO = os.environ.get("BANK_ACCOUNT_NO", "123-890012-12345")
     BANK_SWIFT = "KOEXKRSE"
+    INVOICE_SHOW_BANK = True
 
     PGU_NAME = "POSCO Group University"
     PGU_DEPT = "POSCO Human Resources & Innovation Institute"

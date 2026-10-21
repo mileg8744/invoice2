@@ -11,10 +11,7 @@
     "corporation_type": "대표법인",
     "address": "La Almudena Manzana 937A - Casa 10 (Ex Salon Terraza) - Ruta Prov. 28, Salta, Provincia de Salta, Argentina CP : 4400",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "yoonjh84@posco.com",
-      "yoonjh84@poscoargentina.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -31,9 +28,7 @@
     "contact_emails": [
       "bson@poscoamerica.com"
     ],
-    "hr_expat_emails": [
-      "yj_kang0804@posco-inc.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -48,9 +43,7 @@
     "corporation_type": "대표법인",
     "address": "Rahmannstr. 3, 65760 Eschborn, Germany",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "ssaris@posco-inc.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -68,10 +61,7 @@
       "cuiailan@posco.net",
       "nania0709@posco.net"
     ],
-    "hr_expat_emails": [
-      "zaichehe@posco-inc.com",
-      "pchezaiche@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -86,10 +76,7 @@
     "corporation_type": "대표법인",
     "address": "POSCO TOKYO BLDG., 5F, 11-14 GINZA 5CHOME, CHUO-KU, TOKYO 104-0061 JAPAN",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "oh.jongr@posco.com",
-      "jr.oh@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -104,10 +91,7 @@
     "corporation_type": "기타법인",
     "address": "Room 5306 Central Plaza, 18 Harbour Road, Wanchai, Hong Kong",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "jiyoonjeong@posco-inc.com",
-      "chanuk.kim@posco-inc.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -122,9 +106,7 @@
     "corporation_type": "기타법인",
     "address": "Sopo Del Office Tower A 17th Floor Jalan Mega Kuningan Barat Ⅲ Lot 10 1-6, Desa/Kelurahan Kuningan Timur, Kecamatan Setiabudi, South Jakarta, DKI Jakarta, Indonesia, 12950",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "799689@posco-inc.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -139,9 +121,7 @@
     "corporation_type": "기타법인",
     "address": "Bukowice 43, 56-120 Brzeg Dolny, Poland",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "junmin_lee@posco-inc.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -156,9 +136,7 @@
     "corporation_type": "생산법인",
     "address": "M001, Mai Village, Gaofu Road, Xingtan Town, Shunde District, Foshan, Guangdong, China",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "itrustu@posco.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -177,11 +155,7 @@
       "wangshuo@posco.net",
       "chenzg@posco.net"
     ],
-    "hr_expat_emails": [
-      "wangshuo@posco.net",
-      "menglei@posco.net",
-      "chenzg@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -200,11 +174,7 @@
       "wangshuo@posco.net",
       "chenzg@posco.net"
     ],
-    "hr_expat_emails": [
-      "wangshuo@posco.net",
-      "menglei@posco.net",
-      "chenzg@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -223,11 +193,7 @@
       "wangshuo@posco.net",
       "chenzg@posco.net"
     ],
-    "hr_expat_emails": [
-      "wangshuo@posco.net",
-      "menglei@posco.net",
-      "chenzg@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -246,11 +212,7 @@
       "wangshuo@posco.net",
       "chenzg@posco.net"
     ],
-    "hr_expat_emails": [
-      "wangshuo@posco.net",
-      "menglei@posco.net",
-      "chenzg@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -269,11 +231,7 @@
       "wangshuo@posco.net",
       "chenzg@posco.net"
     ],
-    "hr_expat_emails": [
-      "wangshuo@posco.net",
-      "menglei@posco.net",
-      "chenzg@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -292,11 +250,7 @@
       "wangshuo@posco.net",
       "chenzg@posco.net"
     ],
-    "hr_expat_emails": [
-      "wangshuo@posco.net",
-      "menglei@posco.net",
-      "chenzg@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -315,11 +269,7 @@
       "wangshuo@posco.net",
       "chenzg@posco.net"
     ],
-    "hr_expat_emails": [
-      "wangshuo@posco.net",
-      "menglei@posco.net",
-      "chenzg@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -336,10 +286,7 @@
     "contact_emails": [
       "jylee4577@posco.net"
     ],
-    "hr_expat_emails": [
-      "636390@posco.com",
-      "heejepark@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -356,10 +303,7 @@
     "contact_emails": [
       "sayid.bs@krakatauposco.co.id"
     ],
-    "hr_expat_emails": [
-      "songwr@posco.com",
-      "diego_lorca@posco.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -374,10 +318,7 @@
     "corporation_type": "가공센터/물류법인",
     "address": "POSCO-IJPC, Jl.Permata Raya Lot FF-3, Kawasan Industri KIIC Karawang, 41361 - Jawa Barat Indonesia",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "870338@posco.com",
-      "ejunisong_ijpc@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -395,10 +336,7 @@
       "giang.201627@posco.net",
       "kimngan@posco.net"
     ],
-    "hr_expat_emails": [
-      "sjlim1945@posco.com",
-      "limsj@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -416,10 +354,7 @@
       "lynguyen189@pyvina.com",
       "hongthanh@pyvina.com"
     ],
-    "hr_expat_emails": [
-      "sunggiun@posco.com",
-      "giun.sung@pyvina.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -437,10 +372,7 @@
       "nguyen.thientrang@posco.net",
       "le.hien@posco.net"
     ],
-    "hr_expat_emails": [
-      "jaejin.lee@posco.com",
-      "leejaejin@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -457,10 +389,7 @@
     "contact_emails": [
       "thanh.nguyen@posco.net"
     ],
-    "hr_expat_emails": [
-      "bj.an@posco.net",
-      "y.w.ma@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -477,10 +406,7 @@
     "contact_emails": [
       "thanh.nguyen@posco.net"
     ],
-    "hr_expat_emails": [
-      "bj.an@posco.net",
-      "y.w.ma@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -498,10 +424,7 @@
       "piyaporn.bo@poscotcs.com",
       "Somrudee.ch@poscotcs.com"
     ],
-    "hr_expat_emails": [
-      "songjaesu@posco.com",
-      "songjaesu.ptcs@poscotcs.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -522,10 +445,7 @@
       "darakorn@poscothainox.com",
       "supathanya@poscothainox.com"
     ],
-    "hr_expat_emails": [
-      "ks.shin@posco.com",
-      "ks.shin_th@poscothainox.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -542,10 +462,7 @@
     "contact_emails": [
       "natthanicha_c@posco.net"
     ],
-    "hr_expat_emails": [
-      "ychoi@posco.com",
-      "ychoi_th@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -560,10 +477,7 @@
     "corporation_type": "대표법인",
     "address": "Lot 60&61, Jalan Sg. Pinang 5/1, Seksyen 5, Fasa 2A, Taman Perindustrian Pulau Indah, 42920 Pelabuhan Klang, Selangor Darul Ehsan, MALAYSIA",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "hc.jang@posco.com",
-      "hcheol.j@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -580,10 +494,7 @@
     "contact_emails": [
       "jessie.chok@posco.net"
     ],
-    "hr_expat_emails": [
-      "emcho@posco.com",
-      "em.cho@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -598,9 +509,7 @@
     "corporation_type": "가공센터/물류법인",
     "address": "FIRST PHILIPPINE INDUSTRIAL PARK, LOT22A, BRGY. ULANGO, TANAUAN CITY, BATANGAS 4232, PHILIPPINES, 4232",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "widon@posco.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -617,10 +526,7 @@
     "contact_emails": [
       "chiranjeev.m@posco.net"
     ],
-    "hr_expat_emails": [
-      "98redhan@posco.com",
-      "wonkyu.han@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -637,10 +543,7 @@
     "contact_emails": [
       "vidyav@posco.net"
     ],
-    "hr_expat_emails": [
-      "871789@posco.com",
-      "hoch.lee1@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -657,10 +560,7 @@
     "contact_emails": [
       "vidyav@posco.net"
     ],
-    "hr_expat_emails": [
-      "871789@posco.com",
-      "hoch.lee1@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -677,10 +577,7 @@
     "contact_emails": [
       "vidyav@posco.net"
     ],
-    "hr_expat_emails": [
-      "871789@posco.com",
-      "hoch.lee1@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -697,10 +594,7 @@
     "contact_emails": [
       "vidyav@posco.net"
     ],
-    "hr_expat_emails": [
-      "871789@posco.com",
-      "hoch.lee1@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -717,10 +611,7 @@
     "contact_emails": [
       "vidyav@posco.net"
     ],
-    "hr_expat_emails": [
-      "871789@posco.com",
-      "hoch.lee1@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -737,10 +628,7 @@
     "contact_emails": [
       "park.alfonso@posco.net"
     ],
-    "hr_expat_emails": [
-      "eroika205@posco.com",
-      "taehee.lee@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -757,10 +645,7 @@
     "contact_emails": [
       "seongyun.jeong@poscomppc.com"
     ],
-    "hr_expat_emails": [
-      "jo.sh@posco.com",
-      "shjo@poscomppc.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -775,10 +660,7 @@
     "corporation_type": "가공센터/물류법인",
     "address": "CARRETERA ALTERNA CELAYA-VILLAGRAN KM 11.7 EL PINTOR VILLAGRAN GUANAJUATO 38260",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "seho1213@posco.com",
-      "leo1213@poscomvwpc.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -795,10 +677,7 @@
     "contact_emails": [
       "hyein.cheon@poscoaapc.com"
     ],
-    "hr_expat_emails": [
-      "dmseo@posco.com",
-      "eastman@poscoaapc.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -813,10 +692,7 @@
     "corporation_type": "기타법인",
     "address": "2420-1075 W.Georgia St. Vancouver, BC, Canada, V6E 3C9",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "minji.kim@posco.com",
-      "minjikim@poscan.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -831,9 +707,7 @@
     "corporation_type": "기타법인",
     "address": "Av. das Américas, 3500 | BI. 5 - Sala 612 - Le Monde Office",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "joonyoup.jung@poscobrazil.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -848,9 +722,7 @@
     "corporation_type": "가공센터/물류법인",
     "address": "Innowacyjna 6, 55-040 Biskupice Podgórne, Poland",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "gujeong@posco.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -865,9 +737,7 @@
     "corporation_type": "가공센터/물류법인",
     "address": "Via Marco Biagi 17/19 37050 Vallese di Oppeano, Italy",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "yehyun@posco.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -884,10 +754,7 @@
     "contact_emails": [
       "melis.uludag@poscoassan.com"
     ],
-    "hr_expat_emails": [
-      "wide08@posco.com",
-      "gwangsoo.kim@poscoassan.com"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -905,10 +772,7 @@
       "jylee2014@posco.net",
       "kitae@posco.net"
     ],
-    "hr_expat_emails": [
-      "sms601@posco.com",
-      "sms601@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -923,10 +787,7 @@
     "corporation_type": "기타법인",
     "address": "Suite 32.02, Level 32, Governor Phillip Tower, 1 Farrer Place, Sydney NSW 2000",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "bk.koo@posco.com",
-      "bk.koo9@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": true
   },
   {
@@ -941,10 +802,7 @@
     "corporation_type": "기타법인",
     "address": "",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "yhlee1982@posco.com",
-      "troypark@poscowa.com.au"
-    ],
+    "hr_expat_emails": [],
     "active": false
   },
   {
@@ -978,11 +836,7 @@
       "wangshuo@posco.net",
       "chenzg@posco.net"
     ],
-    "hr_expat_emails": [
-      "wangshuo@posco.net",
-      "menglei@posco.net",
-      "chenzg@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": false
   },
   {
@@ -1001,11 +855,7 @@
       "wangshuo@posco.net",
       "chenzg@posco.net"
     ],
-    "hr_expat_emails": [
-      "wangshuo@posco.net",
-      "menglei@posco.net",
-      "chenzg@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": false
   },
   {
@@ -1024,11 +874,7 @@
       "wangshuo@posco.net",
       "chenzg@posco.net"
     ],
-    "hr_expat_emails": [
-      "wangshuo@posco.net",
-      "menglei@posco.net",
-      "chenzg@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": false
   },
   {
@@ -1047,11 +893,7 @@
       "wangshuo@posco.net",
       "chenzg@posco.net"
     ],
-    "hr_expat_emails": [
-      "wangshuo@posco.net",
-      "menglei@posco.net",
-      "chenzg@posco.net"
-    ],
+    "hr_expat_emails": [],
     "active": false
   },
   {
@@ -1096,9 +938,7 @@
     "corporation_type": "대표법인",
     "address": "",
     "contact_emails": [],
-    "hr_expat_emails": [
-      "swchoi3@posco.com"
-    ],
+    "hr_expat_emails": [],
     "active": false
   },
   {

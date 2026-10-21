@@ -12,7 +12,16 @@
     <span class="muted ms-2">{{ t('last_modified') }} {{ row.updated_at | dt }}</span>
   </div>
   <div class="toolbar-right">
+    {% if current_user.role == 'admin' %}
+    <label class="dl-bank-opt">
+      <input type="checkbox" id="dl-bank" {% if invoice_show_bank %}checked{% endif %}>
+      {{ t('include_bank') }}
+    </label>
+    <a class="btn btn-outline-navy" data-dl-bank href="{{ url_for('invoice_pdf', iid=row.id, bank=1 if invoice_show_bank else 0) }}"><i class="bi bi-file-earmark-pdf"></i> {{ t('download_pdf') }}</a>
+    <a class="btn btn-outline-navy" data-dl-bank href="{{ url_for('invoice_ppt', iid=row.id, bank=1 if invoice_show_bank else 0) }}"><i class="bi bi-file-earmark-ppt"></i> {{ t('download_ppt') }}</a>
+    {% else %}
     <a class="btn btn-outline-navy" href="{{ url_for('invoice_pdf', iid=row.id) }}"><i class="bi bi-file-earmark-pdf"></i> {{ t('view_pdf') }}</a>
+    {% endif %}
     {% if current_user.role == 'admin' %}
     <a class="btn btn-outline-navy" href="{{ url_for('invoice_edit', iid=row.id) }}">{{ t('edit') }}</a>
     {% if row.status == 'draft' %}
@@ -173,17 +182,37 @@
       <button class="btn btn-navy" type="submit">{{ t('mark_paid') }}</button>
     </form>
   </section>
-  {% else %}
-  <section class="card-panel">
-    <h3 class="h6">{{ t('logs') }}</h3>
-    <ul class="log-list">
-      {% for log in logs %}
-      <li><span class="mono">{{ log.created_at | dt }}</span> {{ log.action }} · {{ log.username }}<div class="tiny">{{ log.details }}</div></li>
-      {% else %}
-      <li class="muted">{{ t('no_data') }}</li>
-      {% endfor %}
-    </ul>
-  </section>
   {% endif %}
 </div>
+<section class="card-panel">
+  <h3 class="h6">{{ t('logs') }}</h3>
+  <ul class="log-list">
+    {% for log in logs %}
+    <li><span class="mono">{{ log.created_at | dt }}</span> {{ audit_action_label(log.action) }} · {{ log.username }}<div class="tiny">{{ log.details }}</div></li>
+    {% else %}
+    <li class="muted">{{ t('no_data') }}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}
+{% block scripts %}
+{% if current_user.role == 'admin' %}
+<script>
+(function () {
+  const box = document.getElementById("dl-bank");
+  const links = document.querySelectorAll("[data-dl-bank]");
+  if (!box || !links.length) return;
+  function sync() {
+    const q = box.checked ? "1" : "0";
+    links.forEach((a) => {
+      const url = new URL(a.getAttribute("href"), window.location.origin);
+      url.searchParams.set("bank", q);
+      a.setAttribute("href", url.pathname + url.search);
+    });
+  }
+  box.addEventListener("change", sync);
+  sync();
+})();
+</script>
+{% endif %}
 {% endblock %}

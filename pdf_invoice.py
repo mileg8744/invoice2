@@ -90,7 +90,7 @@ def _draw_posco_ci(c, x, y, height_pt):
     return _width("posco", FONT_BOLD, 16)
 
 
-def generate_invoice_pdf(invoice, output_path: Path) -> Path:
+def generate_invoice_pdf(invoice, output_path: Path, show_bank: bool = True) -> Path:
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -301,43 +301,45 @@ def generate_invoice_pdf(invoice, output_path: Path) -> Path:
     c.setFont(FONT_BOLD, 11)
     c.drawRightString(total_x, y, due_amount)
 
-    y -= 12 * mm
-    c.setFillColor(NAVY)
-    c.setFont(FONT_BOLD, 8.5)
-    c.drawString(margin, y, "WIRE TRANSFER PROTOCOL")
-    y -= 3.2 * mm
+    y -= 10 * mm
     box_h = 22 * mm
-    c.setFillColor(BAND)
-    c.roundRect(margin, y - box_h, content_w, box_h, 1.5, fill=1, stroke=0)
-
-    left_bank = [
-        ("BANK", Config.BANK_NAME),
-        ("BRANCH", Config.BANK_BRANCH),
-        ("ACCOUNT NAME", Config.BANK_ACCOUNT_NAME),
-    ]
-    right_bank = [
-        ("ACCOUNT NO.", Config.BANK_ACCOUNT_NO),
-        ("SWIFT CODE", Config.BANK_SWIFT),
-    ]
-    row_gap = 6.2 * mm
-    for i, (label, value) in enumerate(left_bank):
-        yy = y - 5.4 * mm - i * row_gap
-        c.setFillColor(MUTED)
-        c.setFont(FONT, 6.8)
-        c.drawString(margin + 4 * mm, yy, label)
+    bank_block_h = 3.2 * mm + box_h + 10 * mm
+    if show_bank:
         c.setFillColor(NAVY)
         c.setFont(FONT_BOLD, 8.5)
-        c.drawString(margin + 32 * mm, yy, value or "")
-    for i, (label, value) in enumerate(right_bank):
-        yy = y - 5.4 * mm - i * row_gap
-        c.setFillColor(MUTED)
-        c.setFont(FONT, 6.8)
-        c.drawString(margin + content_w / 2 + 4 * mm, yy, label)
-        c.setFillColor(NAVY)
-        c.setFont(FONT_BOLD, 8.5)
-        c.drawString(margin + content_w / 2 + 32 * mm, yy, value or "")
+        c.drawString(margin, y, "WIRE TRANSFER PROTOCOL")
+        bank_y = y - 3.2 * mm
+        c.setFillColor(BAND)
+        c.roundRect(margin, bank_y - box_h, content_w, box_h, 1.5, fill=1, stroke=0)
 
-    y = y - box_h - 10 * mm
+        left_bank = [
+            ("BANK", Config.BANK_NAME),
+            ("BRANCH", Config.BANK_BRANCH),
+            ("ACCOUNT NAME", Config.BANK_ACCOUNT_NAME),
+        ]
+        right_bank = [
+            ("ACCOUNT NO.", Config.BANK_ACCOUNT_NO),
+            ("SWIFT CODE", Config.BANK_SWIFT),
+        ]
+        row_gap = 6.2 * mm
+        for i, (label, value) in enumerate(left_bank):
+            yy = bank_y - 5.4 * mm - i * row_gap
+            c.setFillColor(MUTED)
+            c.setFont(FONT, 6.8)
+            c.drawString(margin + 4 * mm, yy, label)
+            c.setFillColor(NAVY)
+            c.setFont(FONT_BOLD, 8.5)
+            c.drawString(margin + 32 * mm, yy, value or "")
+        for i, (label, value) in enumerate(right_bank):
+            yy = bank_y - 5.4 * mm - i * row_gap
+            c.setFillColor(MUTED)
+            c.setFont(FONT, 6.8)
+            c.drawString(margin + content_w / 2 + 4 * mm, yy, label)
+            c.setFillColor(NAVY)
+            c.setFont(FONT_BOLD, 8.5)
+            c.drawString(margin + content_w / 2 + 32 * mm, yy, value or "")
+
+    y -= bank_block_h
     sig_x = width - margin - 58 * mm
     c.setFillColor(NAVY)
     c.setFont(FONT_BOLD, 8)

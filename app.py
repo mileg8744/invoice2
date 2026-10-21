@@ -42,6 +42,7 @@ from mailer import (
 from smtp_mail import mail_from_address, smtp_configured
 from models import AuditLog, Base, Invoice, InvoiceItem, Subsidiary, Training, User, utcnow
 from pdf_invoice import generate_invoice_pdf, merge_pdf_files
+from ppt_invoice import generate_invoice_ppt
 from regions import REGIONS, apply_region, resolve_region
 from entity_types import ENTITY_TYPES, entity_type_label, resolve_entity_type
 from seed import seed_if_empty
@@ -195,6 +196,49 @@ def create_app():
             )
         )
 
+    MAIL_LOG_ACTIONS = {
+        "issue": ("SEND", "SEND_FAIL"),
+        "remind": ("REMIND", "REMIND_FAIL"),
+        "resend": ("RESEND", "RESEND_FAIL"),
+        "hq": ("HQ_COPY", "HQ_COPY_FAIL"),
+    }
+
+    def mail_audit_detail(mail, row=None):
+        parts = []
+        if row is not None:
+            sub = getattr(row, "subsidiary", None)
+            code = (getattr(sub, "code", None) or getattr(row, "billed_code", None) or "").strip()
+            name = (
+                (getattr(row, "billed_name", None) or "").strip()
+                or (getattr(sub, "name_en", None) or "").strip()
+                or (getattr(sub, "name_ko", None) or "").strip()
+            )
+            if code:
+                parts.append(f"entity={code}")
+            if name:
+                parts.append(f"name={name}")
+        parts.append(mail_log_detail(mail))
+        if mail.get("ok"):
+            parts.append("result=ok")
+        else:
+            parts.append(f"result={mail.get('error') or 'fail'}")
+        return "; ".join(parts)
+
+    def log_invoice_mail(db, row, kind, mail):
+        ok_action, fail_action = MAIL_LOG_ACTIONS.get(kind, ("SEND", "SEND_FAIL"))
+        log_action(
+            db,
+            "invoice",
+            row.invoice_no,
+            ok_action if mail.get("ok") else fail_action,
+            mail_audit_detail(mail, row),
+        )
+
+    def audit_action_label(action):
+        key = f"log_{str(action or '').lower()}"
+        label = t(key)
+        return label if label != key else (action or "")
+
     def login_required(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
@@ -239,6 +283,8 @@ def create_app():
             "hq_copy_email": Config.HQ_COPY_EMAIL,
             "mail_live": mail_live,
             "mail_from": mail_from,
+            "audit_action_label": audit_action_label,
+            "invoice_show_bank": bool(getattr(Config, "INVOICE_SHOW_BANK", True)),
         }
 
     @app.template_filter("krw")
@@ -557,6 +603,7 @@ def create_app():
             cc_text=", ".join(cc_choices),
             placeholders=mail_placeholder_help(),
             bulk=len(rows) > 1,
+            include_bank=parse_show_bank(),
         )
 
     EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
@@ -632,9 +679,22 @@ def create_app():
     def invoice_pdf_path(invoice):
         return PDF_DIR / f"{invoice.invoice_no}.pdf"
 
-    def rebuild_pdf(invoice):
+    def invoice_show_bank():
+        return bool(getattr(Config, "INVOICE_SHOW_BANK", True))
+
+    def parse_show_bank(default=None):
+        if request.form.get("invoice_show_bank_ready") == "1":
+            return request.form.get("invoice_show_bank") in {"1", "on", "true"}
+        raw = request.args.get("bank")
+        if raw is None:
+            return invoice_show_bank() if default is None else bool(default)
+        return str(raw).strip().lower() not in {"0", "off", "false", "no"}
+
+    def rebuild_pdf(invoice, show_bank=None):
+        if show_bank is None:
+            show_bank = invoice_show_bank()
         path = invoice_pdf_path(invoice)
-        generate_invoice_pdf(invoice, path)
+        generate_invoice_pdf(invoice, path, show_bank=show_bank)
         invoice.pdf_path = str(path)
         return path
 
@@ -958,6 +1018,7 @@ def create_app():
                 "BANK_ACCOUNT_NAME": (request.form.get("bank_account_name") or "").strip(),
                 "BANK_ACCOUNT_NO": (request.form.get("bank_account_no") or "").strip(),
                 "BANK_SWIFT": (request.form.get("bank_swift") or "").strip(),
+                "INVOICE_SHOW_BANK": request.form.get("invoice_show_bank") in {"1", "on", "true"},
                 "MAIL_TPL_ISSUE_SUBJECT": (request.form.get("mail_tpl_issue_subject") or "").strip(),
                 "MAIL_TPL_ISSUE_BODY": (request.form.get("mail_tpl_issue_body") or "").replace("\r", "").strip(),
                 "MAIL_TPL_REMIND_SUBJECT": (request.form.get("mail_tpl_remind_subject") or "").strip(),
@@ -2794,10 +2855,10 @@ def create_app():
             fill=True,
         )
 
-    def mark_invoice_issued(db, row):
+    def mark_invoice_issued(db, row, show_bank=None):
         apply_training_headcounts(db, row)
         snapshot_invoice_party(row)
-        path = rebuild_pdf(row)
+        path = rebuild_pdf(row, show_bank=show_bank)
         if row.status == "draft":
             row.status = "issued"
             row.issued_at = utcnow()
@@ -2835,7 +2896,7 @@ def create_app():
         if request.form.get("compose_ready") != "1":
             return redirect(url_for("invoice_compose", iid=iid, kind="issue"))
         was_draft = row.status == "draft"
-        path = mark_invoice_issued(db, row)
+        path = mark_invoice_issued(db, row, show_bank=parse_show_bank())
         mail = send_invoice_email(
             row,
             path,
@@ -2846,14 +2907,15 @@ def create_app():
             cc_recipients=cc_list,
         )
         if not flash_mail_result(mail, "mail_sent_ok", commit=False):
+            invoice_no = row.invoice_no
+            detail = mail_audit_detail(mail, row)
+            db.rollback()
+            log_action(db, "invoice", invoice_no, "SEND_FAIL", detail)
+            db.commit()
             return redirect(url_for("invoice_detail", iid=iid))
-        log_action(
-            db,
-            "invoice",
-            row.invoice_no,
-            "ISSUE" if was_draft else "SEND",
-            mail_log_detail(mail),
-        )
+        if was_draft:
+            log_action(db, "invoice", row.invoice_no, "ISSUE", current_user().username)
+        log_invoice_mail(db, row, "issue", mail)
         db.commit()
         return redirect(url_for("invoice_detail", iid=iid))
 
@@ -2915,7 +2977,7 @@ def create_app():
             return redirect(url_for("invoice_detail", iid=iid))
         if request.form.get("compose_ready") != "1":
             return redirect(url_for("invoice_compose", iid=iid, kind="remind"))
-        path = rebuild_pdf(row)
+        path = rebuild_pdf(row, show_bank=parse_show_bank())
         mail = send_invoice_email(
             row,
             path,
@@ -2925,9 +2987,9 @@ def create_app():
             to_recipients=to_list,
             cc_recipients=cc_list,
         )
-        if flash_mail_result(mail, "remind_ok", commit=False):
-            log_action(db, "invoice", row.invoice_no, "REMIND", mail_log_detail(mail))
-            db.commit()
+        flash_mail_result(mail, "remind_ok", commit=False)
+        log_invoice_mail(db, row, "remind", mail)
+        db.commit()
         return redirect(url_for("invoice_detail", iid=iid))
 
     @app.route("/invoices/<int:iid>/resend", methods=["POST"])
@@ -2943,7 +3005,7 @@ def create_app():
             return redirect(url_for("invoice_detail", iid=iid))
         if request.form.get("compose_ready") != "1":
             return redirect(url_for("invoice_compose", iid=iid, kind="resend"))
-        path = rebuild_pdf(row)
+        path = rebuild_pdf(row, show_bank=parse_show_bank())
         mail = send_invoice_email(
             row,
             path,
@@ -2953,9 +3015,9 @@ def create_app():
             to_recipients=to_list,
             cc_recipients=cc_list,
         )
-        if flash_mail_result(mail, "mail_resent", commit=False):
-            log_action(db, "invoice", row.invoice_no, "RESEND", mail_log_detail(mail))
-            db.commit()
+        flash_mail_result(mail, "mail_resent", commit=False)
+        log_invoice_mail(db, row, "resend", mail)
+        db.commit()
         return redirect(url_for("invoice_detail", iid=iid))
 
     @app.route("/invoices/bulk-remind", methods=["POST"])
@@ -2998,7 +3060,7 @@ def create_app():
                 continue
             try:
                 was_draft = row.status == "draft"
-                path = mark_invoice_issued(db, row)
+                path = mark_invoice_issued(db, row, show_bank=parse_show_bank())
                 mail = send_invoice_email(
                     row,
                     path,
@@ -3012,15 +3074,11 @@ def create_app():
                     sent += 1
                     if mail.get("via") == "smtp":
                         via = "smtp"
-                    log_action(
-                        db,
-                        "invoice",
-                        row.invoice_no,
-                        "ISSUE" if was_draft else "SEND",
-                        mail_log_detail(mail),
-                    )
+                    if was_draft:
+                        log_action(db, "invoice", row.invoice_no, "ISSUE", current_user().username)
                 else:
                     failed += 1
+                log_invoice_mail(db, row, "issue", mail)
             except Exception:
                 failed += 1
         db.commit()
@@ -3115,10 +3173,11 @@ def create_app():
             )
         subject = request.form.get("mail_subject")
         body_text = request.form.get("mail_body")
+        show_bank = parse_show_bank()
         paths = []
         for row in rows:
             try:
-                paths.append(rebuild_pdf(row))
+                paths.append(rebuild_pdf(row, show_bank=show_bank))
             except Exception:
                 log_action(db, "invoice", row.invoice_no, "HQ_COPY", "pdf_rebuild_failed")
         pdf_bytes = merge_pdf_files(paths)
@@ -3136,16 +3195,22 @@ def create_app():
             to_recipients=hq_copy_emails(),
             kind="hq",
         )
-        if flash_mail_result(mail, "hq_bulk_ok", commit=False):
-            log_action(
-                db,
-                "invoice",
-                "HQ_COPY",
-                "HQ_COPY",
-                f"combined={len(rows)};{mail_log_detail(mail)}",
-            )
+        flash_mail_result(mail, "hq_bulk_ok", commit=False)
+        log_action(
+            db,
+            "invoice",
+            "HQ_COPY",
+            "HQ_COPY" if mail.get("ok") else "HQ_COPY_FAIL",
+            f"combined={len(rows)};{mail_audit_detail(mail)}",
+        )
         db.commit()
         return redirect(url_for("invoices", **request.args))
+
+    def send_invoice_download(path, download_name):
+        resp = send_file(path, as_attachment=True, download_name=download_name)
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+        return resp
 
     @app.route("/invoices/<int:iid>/pdf")
     @login_required
@@ -3158,12 +3223,27 @@ def create_app():
         if user.role != "admin" and row.subsidiary_id != user.subsidiary_id:
             flash(t("no_permission"), "danger")
             return redirect(url_for("invoices"))
-        path = rebuild_pdf(row)
-        db.commit()
-        resp = send_file(path, as_attachment=True, download_name=f"{row.invoice_no}.pdf")
-        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
-        resp.headers["Pragma"] = "no-cache"
-        return resp
+        show_bank = parse_show_bank()
+        if user.role == "admin" and not show_bank:
+            path = PDF_DIR / f"{row.invoice_no}-nobank.pdf"
+            generate_invoice_pdf(row, path, show_bank=False)
+        else:
+            path = rebuild_pdf(row, show_bank=show_bank)
+            db.commit()
+        return send_invoice_download(path, f"{row.invoice_no}.pdf")
+
+    @app.route("/invoices/<int:iid>/ppt")
+    @admin_required
+    def invoice_ppt(iid):
+        db = Session()
+        row = db.get(Invoice, iid)
+        if not row:
+            return redirect(url_for("invoices"))
+        show_bank = parse_show_bank()
+        suffix = "" if show_bank else "-nobank"
+        path = PDF_DIR / f"{row.invoice_no}{suffix}.pptx"
+        generate_invoice_ppt(row, path, show_bank=show_bank)
+        return send_invoice_download(path, f"{row.invoice_no}.pptx")
 
     @app.route("/invoices/template")
     @admin_required

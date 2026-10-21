@@ -160,6 +160,17 @@ html.sidebar-collapsed .sidebar-restore-tab { display: inline-flex; }
 .d-contents { display: contents; }
 .filter-label { font-weight: 700; color: var(--navy); }
 .toolbar { justify-content: space-between; }
+.dl-bank-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--navy);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dl-bank-opt input { margin: 0; }
 .muted { color: var(--muted); font-size: 13px; }
 .table-clean { margin: 0; }
 .table-clean thead th {
