@@ -3,7 +3,7 @@
 from io import BytesIO
 from pathlib import Path
 
-from reportlab.lib.colors import HexColor, white, black, Color
+from reportlab.lib.colors import HexColor, white
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
@@ -32,7 +32,6 @@ INK = HexColor("#1A2332")
 MUTED = HexColor("#7B8594")
 RULE = HexColor("#E6E9EE")
 BAND = HexColor("#F4F6F8")
-RED_SEAL = HexColor("#C41E3A")
 
 
 def _money(currency: str, value) -> str:
@@ -355,20 +354,6 @@ def generate_invoice_pdf(invoice, output_path: Path, show_bank: bool = True) -> 
             mask="auto",
             preserveAspectRatio=True,
         )
-    else:
-        cx, cy, r = sig_x + 29 * mm, stamp_y + 13 * mm, 11 * mm
-        c.setStrokeColor(RED_SEAL)
-        c.setFillColor(Color(1, 1, 1, alpha=0))
-        c.setLineWidth(1.3)
-        c.circle(cx, cy, r, stroke=1, fill=0)
-        c.setLineWidth(0.6)
-        c.circle(cx, cy, r - 2.1 * mm, stroke=1, fill=0)
-        c.setFillColor(RED_SEAL)
-        c.setFont(FONT, 5.2)
-        c.drawCentredString(cx, cy + 2.2 * mm, "POSCO GROUP")
-        c.drawCentredString(cx, cy - 1.2 * mm, "UNIVERSITY")
-        c.setFont(FONT, 4.6)
-        c.drawCentredString(cx, cy - 5.2 * mm, "OFFICIAL SEAL")
 
     c.setFillColor(NAVY)
     c.setFont(FONT_BOLD, 10)

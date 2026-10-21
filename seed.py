@@ -148,36 +148,5 @@ def seed_if_empty(db_session):
 
 
 def ensure_stamp(path):
-    from PIL import Image, ImageDraw, ImageFont
-
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        return
-    size = 520
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    navy = (0, 32, 96, 255)
-    red = (196, 30, 58, 255)
-    draw.ellipse((18, 18, size - 18, size - 18), outline=navy, width=14)
-    draw.ellipse((42, 42, size - 42, size - 42), outline=red, width=6)
-    draw.ellipse((70, 70, size - 70, size - 70), outline=navy, width=3)
-    try:
-        font_lg = ImageFont.truetype("arial.ttf", 42)
-        font_sm = ImageFont.truetype("arial.ttf", 22)
-        font_md = ImageFont.truetype("arial.ttf", 28)
-    except OSError:
-        font_lg = ImageFont.load_default()
-        font_sm = font_lg
-        font_md = font_lg
-
-    def center_text(text, y, font, fill):
-        bbox = draw.textbbox((0, 0), text, font=font)
-        w = bbox[2] - bbox[0]
-        draw.text(((size - w) / 2, y), text, font=font, fill=fill)
-
-    center_text("POSCO GROUP", 150, font_sm, navy)
-    center_text("UNIVERSITY", 185, font_sm, navy)
-    center_text("PGU", 240, font_lg, red)
-    center_text("OFFICIAL SEAL", 320, font_md, navy)
-    center_text("INCHEON · KOREA", 365, font_sm, navy)
-    img.save(path)
+    return path.exists()

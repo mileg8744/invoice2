@@ -3265,6 +3265,13 @@ def create_app():
         body_text = request.form.get("mail_body")
         show_bank = parse_show_bank()
         attach_pdf, attach_ppt = parse_attach_formats()
+        smtp_retry_errors = {
+            "smtp_timeout",
+            "smtp_connect_failed",
+            "smtp_too_large",
+            "smtp_send_failed",
+            "smtp_port_blocked",
+        }
         try:
             paths = []
             for row in rows:
@@ -3279,25 +3286,30 @@ def create_app():
                 return redirect(back)
             stamp = date.today().strftime("%Y%m%d")
             extra_files = []
-            gmail_limit = 18 * 1024 * 1024
+            mail_limit = 6 * 1024 * 1024
+            if attach_ppt and (len(paths) > 10 or len(merged_pdf) > 2_500_000):
+                flash(t("hq_bulk_ppt_mail_skip"), "info")
+                attach_ppt = False
+                attach_pdf = True
             if attach_ppt:
                 try:
                     ppt_path = PDF_DIR / f"PGU_invoices_{stamp}.pptx"
                     pdf_bytes_to_pptx(merged_pdf, ppt_path)
                     ppt_bytes = ppt_path.read_bytes()
-                    if len(merged_pdf) + len(ppt_bytes) > gmail_limit:
+                    if len(merged_pdf) + len(ppt_bytes) > mail_limit:
                         raise ValueError("ppt too large")
                     extra_files.append((ppt_bytes, f"PGU_invoices_{stamp}.pptx"))
                 except Exception:
                     log_action(db, "invoice", "HQ_COPY", "HQ_COPY", "ppt_build_failed")
-                    flash(t("hq_bulk_ppt_fail"), "warning")
-                    if not attach_pdf:
-                        attach_pdf = True
-            pdf_bytes = merged_pdf if attach_pdf else None
-            if pdf_bytes and len(pdf_bytes) + sum(len(item[0] or b"") for item in extra_files) > gmail_limit:
-                flash(t("hq_bulk_too_large"), "danger")
-                db.commit()
-                return redirect(back)
+                    flash(t("hq_bulk_ppt_mail_skip"), "warning")
+                    attach_pdf = True
+            pdf_bytes = merged_pdf if attach_pdf or not extra_files else None
+            if not pdf_bytes and not extra_files:
+                pdf_bytes = merged_pdf
+            if (len(pdf_bytes or b"") + sum(len(item[0] or b"") for item in extra_files)) > mail_limit:
+                extra_files = []
+                pdf_bytes = merged_pdf
+                flash(t("hq_bulk_ppt_mail_skip"), "info")
             pdf_name = f"PGU_invoices_{stamp}.pdf"
             mail = send_combined_pdf_email(
                 invoices=rows,
@@ -3309,6 +3321,24 @@ def create_app():
                 kind="hq",
                 extra_attachments=extra_files or None,
             )
+            if (
+                not mail.get("ok")
+                and extra_files
+                and mail.get("error") in smtp_retry_errors
+            ):
+                flash(t("hq_bulk_ppt_mail_skip"), "warning")
+                extra_files = []
+                pdf_bytes = merged_pdf
+                mail = send_combined_pdf_email(
+                    invoices=rows,
+                    pdf_bytes=pdf_bytes,
+                    pdf_name=pdf_name,
+                    subject=subject,
+                    body_text=body_text,
+                    to_recipients=hq_copy_emails(),
+                    kind="hq",
+                    extra_attachments=None,
+                )
         except Exception:
             logging.getLogger("pgu.mail").exception("HQ bulk send failed")
             flash(t("hq_bulk_fail"), "danger")
