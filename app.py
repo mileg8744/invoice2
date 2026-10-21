@@ -376,6 +376,46 @@ def create_app():
             return url_for("invoices_period", year=row.year, half=row.half, **kwargs)
         return url_for("invoices", **kwargs)
 
+    def request_year_half():
+        year = request.form.get("year", type=int) or request.args.get("year", type=int)
+        half = request.form.get("half", type=int) or request.args.get("half", type=int)
+        if year and half in (1, 2):
+            return year, half
+        found = re.search(r"/invoices/(\d{4})/h([12])(?:[/?#]|$)", request.referrer or "")
+        if found:
+            return int(found.group(1)), int(found.group(2))
+        return None, None
+
+    def period_hidden_fields():
+        hidden = {}
+        year, half = request_year_half()
+        if year and half in (1, 2):
+            hidden["year"] = year
+            hidden["half"] = half
+        nxt = (request.form.get("next") or request.args.get("next") or "").strip()
+        if nxt:
+            hidden["next"] = nxt
+        return hidden
+
+    def invoices_return_url():
+        nxt = (request.form.get("next") or request.args.get("next") or "").strip()
+        year, half = request_year_half()
+        args = request.args.to_dict(flat=True)
+        args.pop("year", None)
+        args.pop("half", None)
+        args.pop("next", None)
+        if nxt == "collections":
+            col = request.args.to_dict(flat=True)
+            col.pop("next", None)
+            if year and not col.get("year"):
+                col["year"] = year
+            if half and not col.get("half"):
+                col["half"] = half
+            return url_for("collections", **col)
+        if year and half in (1, 2):
+            return url_for("invoices_period", year=year, half=half, **args)
+        return url_for("invoices", **args)
+
     def period_ctx(year, half, kind):
         year, half = parse_period_pair(year, half)
         label = period_label(year, half)
@@ -758,15 +798,20 @@ def create_app():
             amount_krw=qty * training.unit_price_krw,
         )
 
-    def filtered_invoices(db, user, year=None, half=None):
+    def filtered_invoices(db, user, year=None, half=None, status=None):
         q = db.query(Invoice)
         if user.role != "admin":
             q = q.filter(Invoice.subsidiary_id == user.subsidiary_id)
         if year is None:
-            year = request.args.get("year", type=int)
+            year = request.form.get("year", type=int) or request.args.get("year", type=int)
         if half is None:
-            half = request.args.get("half", type=int)
-        status = request.args.get("status", "").strip()
+            half = request.form.get("half", type=int) or request.args.get("half", type=int)
+        if status is None:
+            status = (request.args.get("status") or request.form.get("status") or "").strip()
+        elif status is False:
+            status = ""
+        else:
+            status = str(status).strip()
         code = request.args.get("subsidiary", "").strip()
         qtext = request.args.get("q", "").strip()
         company = request.args.get("company", "").strip()
@@ -3039,7 +3084,7 @@ def create_app():
         ids = parse_selected_invoice_ids(request.form)
         if not ids:
             flash(t("bulk_remind_none"), "warning")
-            return redirect(url_for("invoices", **request.args))
+            return redirect(invoices_return_url())
         rows = (
             db.query(Invoice)
             .filter(Invoice.id.in_(ids), Invoice.status.in_(("draft", "issued", "acknowledged")))
@@ -3048,17 +3093,20 @@ def create_app():
         )
         if not rows:
             flash(t("bulk_remind_none"), "warning")
-            return redirect(url_for("invoices", **request.args))
+            return redirect(invoices_return_url())
         if request.form.get("compose_ready") != "1":
             for row in rows:
                 if row.status == "draft":
                     apply_training_headcounts(db, row)
             db.commit()
+            extra = period_hidden_fields()
+            qargs = {**request.args.to_dict(flat=True), **{k: v for k, v in extra.items()}}
             return render_mail_compose(
                 "issue",
                 rows,
-                url_for("invoices_bulk_remind", **request.args),
-                url_for("invoices", **request.args),
+                url_for("invoices_bulk_remind", **qargs),
+                invoices_return_url(),
+                hidden=extra,
                 fill=False,
             )
         subject = request.form.get("mail_subject")
@@ -3104,7 +3152,7 @@ def create_app():
             flash(f"{t('hq_bulk_fail')} {failed}{t('rows')}", "warning")
         if not sent and not failed and not skipped:
             flash(t("bulk_remind_none"), "warning")
-        return redirect(url_for("invoices", **request.args))
+        return redirect(invoices_return_url())
 
     @app.route("/invoices/bulk-issue", methods=["POST"])
     @admin_required
@@ -3113,7 +3161,7 @@ def create_app():
         ids = parse_selected_invoice_ids(request.form)
         if not ids:
             flash(t("bulk_issue_none"), "warning")
-            return redirect(url_for("invoices", **request.args))
+            return redirect(invoices_return_url())
         rows = (
             db.query(Invoice)
             .filter(Invoice.id.in_(ids), Invoice.status == "draft")
@@ -3122,7 +3170,7 @@ def create_app():
         )
         if not rows:
             flash(t("bulk_issue_none"), "warning")
-            return redirect(url_for("invoices", **request.args))
+            return redirect(invoices_return_url())
         issued = 0
         for row in rows:
             mark_invoice_issued(db, row)
@@ -3130,7 +3178,7 @@ def create_app():
             issued += 1
         db.commit()
         flash(f"{t('bulk_issue_ok')} {issued}{t('rows')}", "success")
-        return redirect(url_for("invoices", **request.args))
+        return redirect(invoices_return_url())
 
     @app.route("/invoices/bulk-delete", methods=["POST"])
     @admin_required
@@ -3139,7 +3187,7 @@ def create_app():
         ids = parse_selected_invoice_ids(request.form)
         if not ids:
             flash(t("bulk_delete_none"), "warning")
-            return redirect(url_for("invoices", **request.args))
+            return redirect(invoices_return_url())
         rows = (
             db.query(Invoice)
             .filter(Invoice.id.in_(ids))
@@ -3148,7 +3196,7 @@ def create_app():
         )
         if not rows:
             flash(t("bulk_delete_none"), "warning")
-            return redirect(url_for("invoices", **request.args))
+            return redirect(invoices_return_url())
         deleted = 0
         paths = []
         for row in rows:
@@ -3157,83 +3205,114 @@ def create_app():
         db.commit()
         unlink_paths(paths)
         flash(f"{t('bulk_delete_ok')} {deleted}{t('rows')}", "success")
-        return redirect(url_for("invoices", **request.args))
+        return redirect(invoices_return_url())
 
     @app.route("/invoices/hq-copy", methods=["POST"])
     @admin_required
     def invoices_hq_copy():
         db = Session()
+        back = invoices_return_url()
+        extra = period_hidden_fields()
+        qargs = {**request.args.to_dict(flat=True), **{k: v for k, v in extra.items()}}
         if not hq_copy_emails():
             flash(t("hq_bulk_none"), "danger")
-            return redirect(url_for("invoices", **request.args))
-        rows = (
-            filtered_invoices(db, current_user())
-            .filter(Invoice.status != "draft")
-            .order_by(Invoice.year.asc(), Invoice.half.asc(), Invoice.seq.asc())
-            .all()
-        )
+            return redirect(back)
+        ids = parse_selected_invoice_ids(request.form)
+        year, half = request_year_half()
+        nxt = (request.form.get("next") or request.args.get("next") or "").strip()
+        if request.form.get("compose_ready") == "1" and ids:
+            rows = (
+                db.query(Invoice)
+                .filter(Invoice.id.in_(ids), Invoice.status != "draft")
+                .order_by(Invoice.year.asc(), Invoice.half.asc(), Invoice.seq.asc())
+                .all()
+            )
+        else:
+            if nxt != "collections" and not (year and half in (1, 2)):
+                flash(t("hq_bulk_need_period"), "warning")
+                return redirect(back)
+            status = (request.args.get("status") or request.form.get("status") or "").strip()
+            q = filtered_invoices(
+                db,
+                current_user(),
+                year=year,
+                half=half,
+                status=False if status in {"", "draft"} else status,
+            )
+            rows = (
+                q.filter(Invoice.status != "draft")
+                .order_by(Invoice.year.asc(), Invoice.half.asc(), Invoice.seq.asc())
+                .all()
+            )
         if not rows:
             flash(t("hq_bulk_none"), "warning")
-            return redirect(url_for("invoices", **request.args))
+            return redirect(back)
         if request.form.get("compose_ready") != "1":
             return render_mail_compose(
                 "hq",
                 rows,
-                url_for("invoices_hq_copy", **request.args),
-                url_for("invoices", **request.args),
+                url_for("invoices_hq_copy", **qargs),
+                back,
+                hidden=extra,
                 fill=False,
             )
         subject = request.form.get("mail_subject")
         body_text = request.form.get("mail_body")
         show_bank = parse_show_bank()
         attach_pdf, attach_ppt = parse_attach_formats()
-        paths = []
-        for row in rows:
-            try:
-                paths.append(rebuild_pdf(row, show_bank=show_bank))
-            except Exception:
-                log_action(db, "invoice", row.invoice_no, "HQ_COPY", "pdf_rebuild_failed")
-        merged_pdf = merge_pdf_files(paths)
-        if not merged_pdf:
+        try:
+            paths = []
+            for row in rows:
+                try:
+                    paths.append(rebuild_pdf(row, show_bank=show_bank))
+                except Exception:
+                    log_action(db, "invoice", row.invoice_no, "HQ_COPY", "pdf_rebuild_failed")
+            merged_pdf = merge_pdf_files(paths)
+            if not merged_pdf:
+                flash(t("hq_bulk_fail"), "danger")
+                db.commit()
+                return redirect(back)
+            stamp = date.today().strftime("%Y%m%d")
+            extra_files = []
+            if attach_ppt:
+                try:
+                    ppt_path = PDF_DIR / f"PGU_invoices_{stamp}.pptx"
+                    pdf_bytes_to_pptx(merged_pdf, ppt_path)
+                    extra_files.append((ppt_path.read_bytes(), f"PGU_invoices_{stamp}.pptx"))
+                except Exception:
+                    log_action(db, "invoice", "HQ_COPY", "HQ_COPY", "ppt_build_failed")
+                    flash(t("hq_bulk_ppt_fail"), "warning")
+                    if not attach_pdf:
+                        attach_pdf = True
+            pdf_bytes = merged_pdf if attach_pdf else None
+            pdf_name = f"PGU_invoices_{stamp}.pdf"
+            mail = send_combined_pdf_email(
+                invoices=rows,
+                pdf_bytes=pdf_bytes,
+                pdf_name=pdf_name,
+                subject=subject,
+                body_text=body_text,
+                to_recipients=hq_copy_emails(),
+                kind="hq",
+                extra_attachments=extra_files or None,
+            )
+        except Exception:
+            logging.getLogger("pgu.mail").exception("HQ bulk send failed")
             flash(t("hq_bulk_fail"), "danger")
             db.commit()
-            return redirect(url_for("invoices", **request.args))
-        stamp = date.today().strftime("%Y%m%d")
-        extra = []
-        if attach_ppt:
-            try:
-                ppt_path = PDF_DIR / f"PGU_invoices_{stamp}.pptx"
-                pdf_bytes_to_pptx(merged_pdf, ppt_path)
-                extra.append((ppt_path.read_bytes(), f"PGU_invoices_{stamp}.pptx"))
-            except Exception:
-                log_action(db, "invoice", "HQ_COPY", "HQ_COPY", "ppt_build_failed")
-                flash(t("hq_bulk_ppt_fail"), "warning")
-                if not attach_pdf:
-                    attach_pdf = True
-        pdf_bytes = merged_pdf if attach_pdf else None
-        pdf_name = f"PGU_invoices_{stamp}.pdf"
-        mail = send_combined_pdf_email(
-            invoices=rows,
-            pdf_bytes=pdf_bytes,
-            pdf_name=pdf_name,
-            subject=subject,
-            body_text=body_text,
-            to_recipients=hq_copy_emails(),
-            kind="hq",
-            extra_attachments=extra or None,
-        )
+            return redirect(back)
         flash_mail_result(mail, "hq_bulk_ok", commit=False)
-        if mail.get("ok") and attach_ppt and extra:
+        if mail.get("ok") and attach_ppt and extra_files:
             flash(t("hq_bulk_ppt_ok"), "info")
         log_action(
             db,
             "invoice",
             "HQ_COPY",
             "HQ_COPY" if mail.get("ok") else "HQ_COPY_FAIL",
-            f"combined={len(rows)};pdf={int(bool(pdf_bytes))};ppt={int(bool(extra))};{mail_audit_detail(mail)}",
+            f"combined={len(rows)};pdf={int(bool(pdf_bytes))};ppt={int(bool(extra_files))};{mail_audit_detail(mail)}",
         )
         db.commit()
-        return redirect(url_for("invoices", **request.args))
+        return redirect(back)
 
     def send_invoice_download(path, download_name):
         resp = send_file(path, as_attachment=True, download_name=download_name)

@@ -10,7 +10,9 @@
   <div></div>
   <div class="toolbar-right">
     <a class="btn btn-outline-navy" href="{{ url_for('invoice_template') }}">{{ t('download_template') }}</a>
-    <form class="d-inline d-flex align-items-center gap-2 flex-wrap" method="post" action="{{ url_for('invoices_hq_copy', **request.args) }}" onsubmit="return confirm('{{ t('confirm_hq_bulk') }}');">
+    <form class="d-inline d-flex align-items-center gap-2 flex-wrap" method="post" action="{{ url_for('invoices_hq_copy', year=period.year, half=period.half, **request.args) }}" onsubmit="return confirm('{{ t('confirm_hq_bulk') }}');">
+      <input type="hidden" name="year" value="{{ period.year }}">
+      <input type="hidden" name="half" value="{{ period.half }}">
       <input type="hidden" name="invoice_show_bank_ready" value="1">
       <label class="dl-bank-opt">
         <input type="checkbox" name="invoice_show_bank" value="1" {% if invoice_show_bank %}checked{% endif %}>
@@ -94,19 +96,21 @@
 {% endif %}
 
 {% if current_user.role == 'admin' %}
-<form method="post" action="{{ url_for('invoices_bulk_remind', **request.args) }}" id="bulk-invoice-form"
+<form method="post" action="{{ url_for('invoices_bulk_remind', year=period.year, half=period.half, **request.args) }}" id="bulk-invoice-form"
       data-need-remind="{{ t('bulk_remind_need_one') }}"
       data-need-issue="{{ t('bulk_issue_need_one') }}"
       data-need-delete="{{ t('bulk_delete_need_one') }}"
       data-confirm-remind="{{ t('confirm_bulk_remind') }}"
       data-confirm-issue="{{ t('confirm_bulk_issue') }}"
       data-confirm-delete="{{ t('confirm_bulk_delete') }}">
+  <input type="hidden" name="year" value="{{ period.year }}">
+  <input type="hidden" name="half" value="{{ period.half }}">
 <div class="toolbar">
   <p class="muted mb-0">{{ t('bulk_actions_help') }}</p>
   <div class="toolbar-right">
-    <button class="btn btn-navy" type="submit" formaction="{{ url_for('invoices_bulk_remind', **request.args) }}" data-bulk-action="remind"><i class="bi bi-envelope-check"></i> {{ t('bulk_remind_send') }}</button>
-    <button class="btn btn-outline-navy" type="submit" formaction="{{ url_for('invoices_bulk_issue', **request.args) }}" data-bulk-action="issue"><i class="bi bi-send-check"></i> {{ t('bulk_issue') }}</button>
-    <button class="btn btn-ghost" type="submit" formaction="{{ url_for('invoices_bulk_delete', **request.args) }}" data-bulk-action="delete"><i class="bi bi-trash"></i> {{ t('bulk_delete') }}</button>
+    <button class="btn btn-navy" type="submit" formaction="{{ url_for('invoices_bulk_remind', year=period.year, half=period.half, **request.args) }}" data-bulk-action="remind"><i class="bi bi-envelope-check"></i> {{ t('bulk_remind_send') }}</button>
+    <button class="btn btn-outline-navy" type="submit" formaction="{{ url_for('invoices_bulk_issue', year=period.year, half=period.half, **request.args) }}" data-bulk-action="issue"><i class="bi bi-send-check"></i> {{ t('bulk_issue') }}</button>
+    <button class="btn btn-ghost" type="submit" formaction="{{ url_for('invoices_bulk_delete', year=period.year, half=period.half, **request.args) }}" data-bulk-action="delete"><i class="bi bi-trash"></i> {{ t('bulk_delete') }}</button>
   </div>
 </div>
 </form>

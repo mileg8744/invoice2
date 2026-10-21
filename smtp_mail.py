@@ -116,7 +116,7 @@ def _on_render() -> bool:
 
 
 def _smtp_timeout() -> int:
-    return 8 if _on_render() else 30
+    return 8 if _on_render() else 90
 
 
 def mail_use_tls() -> bool:
