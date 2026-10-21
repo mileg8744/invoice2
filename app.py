@@ -3363,6 +3363,84 @@ def create_app():
         resp.headers["Pragma"] = "no-cache"
         return resp
 
+    def send_invoice_bytes(data, download_name, mimetype):
+        buf = BytesIO(data)
+        buf.seek(0)
+        resp = send_file(
+            buf,
+            as_attachment=True,
+            download_name=download_name,
+            mimetype=mimetype,
+        )
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+        return resp
+
+    @app.route("/invoices/<int:year>/h<int:half>/bundle")
+    @admin_required
+    def invoices_period_bundle(year, half):
+        year, half = parse_period_pair(year, half)
+        fmt = (request.args.get("fmt") or "pdf").strip().lower()
+        if fmt in {"pptx", "ppt"}:
+            fmt = "ppt"
+        if fmt not in {"pdf", "ppt"}:
+            abort(404)
+        db = Session()
+        rows = (
+            filtered_invoices(db, current_user(), year=year, half=half)
+            .order_by(Invoice.year.asc(), Invoice.half.asc(), Invoice.seq.asc())
+            .all()
+        )
+        back_args = request.args.to_dict(flat=True)
+        back_args.pop("fmt", None)
+        back_args.pop("bank", None)
+        back_args.pop("year", None)
+        back_args.pop("half", None)
+        back = url_for("invoices_period", year=year, half=half, **back_args)
+        if not rows:
+            flash(t("bulk_download_none"), "warning")
+            return redirect(back)
+        show_bank = parse_show_bank()
+        paths = []
+        for row in rows:
+            try:
+                paths.append(rebuild_pdf(row, show_bank=show_bank))
+            except Exception:
+                log_action(db, "invoice", row.invoice_no, "DOWNLOAD_BUNDLE", "pdf_rebuild_failed")
+        merged_pdf = merge_pdf_files(paths)
+        if not merged_pdf:
+            flash(t("bulk_download_fail"), "danger")
+            db.commit()
+            return redirect(back)
+        stamp = f"{year}H{half}"
+        if fmt == "ppt":
+            try:
+                ppt_path = PDF_DIR / f"PGU_invoices_{stamp}.pptx"
+                pdf_bytes_to_pptx(merged_pdf, ppt_path)
+            except Exception:
+                logging.getLogger("pgu.mail").exception("Period PPT bundle failed")
+                flash(t("bulk_download_fail"), "danger")
+                db.commit()
+                return redirect(back)
+            log_action(
+                db,
+                "invoice",
+                f"{year}-H{half}",
+                "DOWNLOAD_BUNDLE",
+                f"fmt=ppt;combined={len(rows)};bank={int(bool(show_bank))}",
+            )
+            db.commit()
+            return send_invoice_download(ppt_path, f"PGU_invoices_{stamp}.pptx")
+        log_action(
+            db,
+            "invoice",
+            f"{year}-H{half}",
+            "DOWNLOAD_BUNDLE",
+            f"fmt=pdf;combined={len(rows)};bank={int(bool(show_bank))}",
+        )
+        db.commit()
+        return send_invoice_bytes(merged_pdf, f"PGU_invoices_{stamp}.pdf", "application/pdf")
+
     @app.route("/invoices/<int:iid>/pdf")
     @login_required
     def invoice_pdf(iid):

@@ -10,6 +10,8 @@
   <div></div>
   <div class="toolbar-right">
     <a class="btn btn-outline-navy" href="{{ url_for('invoice_template') }}">{{ t('download_template') }}</a>
+    <a class="btn btn-outline-navy" href="{{ url_for('invoices_period_bundle', year=period.year, half=period.half, fmt='pdf', bank=1 if invoice_show_bank else 0, **request.args) }}"><i class="bi bi-file-earmark-pdf"></i> {{ t('bulk_download_pdf') }}</a>
+    <a class="btn btn-outline-navy" href="{{ url_for('invoices_period_bundle', year=period.year, half=period.half, fmt='ppt', bank=1 if invoice_show_bank else 0, **request.args) }}"><i class="bi bi-file-earmark-ppt"></i> {{ t('bulk_download_ppt') }}</a>
     <form class="d-inline d-flex align-items-center gap-2 flex-wrap" method="post" action="{{ url_for('invoices_hq_copy', year=period.year, half=period.half, **request.args) }}" onsubmit="return confirm('{{ t('confirm_hq_bulk') }}');">
       <input type="hidden" name="year" value="{{ period.year }}">
       <input type="hidden" name="half" value="{{ period.half }}">
@@ -92,7 +94,7 @@
   <a class="btn btn-outline-navy" href="{{ url_for('invoices_export', year=period.year, half=period.half, **request.args) }}">{{ t('export_csv') }}</a>
 </form>
 {% if current_user.role == 'admin' %}
-<p class="muted mb-3">{{ t('hq_bulk_help') }} · {{ t('hq_copy_to') }}: <b>{{ hq_copy_email }}</b></p>
+<p class="muted mb-3">{{ t('bulk_download_help') }} · {{ t('hq_bulk_help') }} · {{ t('hq_copy_to') }}: <b>{{ hq_copy_email }}</b></p>
 {% endif %}
 
 {% if current_user.role == 'admin' %}
