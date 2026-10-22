@@ -33,22 +33,4 @@
   <p class="muted mb-0">{{ t('period_unassigned_help') }} · {{ unassigned_count }}{{ t('rows') }}</p>
 </section>
 {% endif %}
-
-{% if current_user.role == 'admin' %}
-<section class="card-panel mt-3">
-  <div class="section-head">
-    <h2>{{ t('period_create') }}</h2>
-  </div>
-  <p class="muted">{{ t('period_create_help') }}</p>
-  <form class="filter-bar mb-0" method="post" action="{{ url_for('period_create') }}">
-    <input type="hidden" name="next" value="{{ kind }}">
-    <input class="form-control" style="max-width:120px" type="number" name="year" min="2000" max="2100" value="{{ default_year }}" required>
-    <select class="form-select" name="half" required>
-      <option value="1">{{ t('half_1') }}</option>
-      <option value="2">{{ t('half_2') }}</option>
-    </select>
-    <button class="btn btn-navy" type="submit">{{ t('period_create') }}</button>
-  </form>
-</section>
-{% endif %}
 {% endblock %}

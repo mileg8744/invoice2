@@ -137,7 +137,6 @@
           <th>{{ t('program_name') }}</th>
           <th>{{ t('subsidiary') }}</th>
           <th>{{ t('learner_name') }}</th>
-          <th>{{ t('learner_email') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -150,10 +149,9 @@
             {% if person.entity_code %}<div class="tiny mono">{{ person.entity_code }}</div>{% endif %}
           </td>
           <td>{{ person.name or '-' }}</td>
-          <td class="mono">{{ person.email or '-' }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="5" class="empty">{{ t('no_learners') }}</td></tr>
+        <tr><td colspan="4" class="empty">{{ t('no_learners') }}</td></tr>
         {% endfor %}
       </tbody>
     </table>

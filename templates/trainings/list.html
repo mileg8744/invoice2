@@ -7,12 +7,6 @@
   <a class="btn btn-navy" href="{{ url_for('training_new_period', year=period.year, half=period.half) }}"><i class="bi bi-plus"></i> {{ t('new_training') }}</a>
 </div>
 <form class="filter-bar" method="get">
-  <select class="form-select" name="session">
-    <option value="">{{ t('session') }}</option>
-    {% for n in sessions %}
-    <option value="{{ n }}" {% if filters.session == n|string %}selected{% endif %}>{{ t('session_n').replace('{n}', n|string) }}</option>
-    {% endfor %}
-  </select>
   <select class="form-select" name="usage">
     <option value="open" {% if filters.usage == 'open' %}selected{% endif %}>{{ t('usage_open') }}</option>
     <option value="issued" {% if filters.usage == 'issued' %}selected{% endif %}>{{ t('usage_issued') }}</option>

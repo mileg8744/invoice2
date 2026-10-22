@@ -47,7 +47,7 @@ from regions import REGIONS, apply_region, resolve_region
 from entity_types import ENTITY_TYPES, entity_type_label, resolve_entity_type
 from seed import seed_if_empty
 from hq_settings import load_hq_settings, save_hq_settings
-from periods import load_declared_periods, save_declared_period
+from periods import load_declared_periods
 from corporation_master import (
     MASTER_JSON,
     contact_emails,
@@ -1668,7 +1668,6 @@ def create_app():
             hub_help=t("period_hub_help_trainings" if kind == "trainings" else "period_hub_help_invoices"),
             year_groups=year_groups,
             unassigned_count=unassigned_invoice_count(db, user),
-            default_year=date.today().year,
         )
 
     def period_participation(db, trainings):
@@ -1696,17 +1695,13 @@ def create_app():
         db = Session()
         rows = trainings_for_period(db, year, half)
         issued_ids = issued_training_id_set(db, [row.id for row in rows])
-        session_f = request.args.get("session", "").strip()
         usage = (request.args.get("usage") or "all").strip()
         if usage not in ("open", "issued", "all"):
             usage = "all"
         metas = {row.id: training_period_meta(row) for row in rows}
-        sessions = sorted({meta["session"] for meta in metas.values() if meta["session"]})
         filtered = []
         for row in rows:
             meta = metas[row.id]
-            if session_f and str(meta["session"]) != session_f:
-                continue
             used = row.id in issued_ids
             if usage == "open" and used:
                 continue
@@ -1739,8 +1734,7 @@ def create_app():
             metas=metas,
             issued_ids=issued_ids,
             learner_counts={row.id: training_headcount(row) for row in filtered},
-            sessions=sessions,
-            filters={"session": session_f, "usage": usage},
+            filters={"usage": usage},
             participation=period_participation(db, rows),
             **ctx,
             **extras,
@@ -2298,23 +2292,6 @@ def create_app():
             db.rollback()
             flash(t("required"), "danger")
         return redirect(back)
-
-    @app.route("/periods", methods=["POST"])
-    @admin_required
-    def period_create():
-        year = request.form.get("year", type=int)
-        half = request.form.get("half", type=int)
-        nxt = (request.form.get("next") or "trainings").strip()
-        try:
-            year, half = parse_period_pair(year, half)
-        except Exception:
-            flash(t("required"), "danger")
-            return redirect(url_for("trainings"))
-        created = save_declared_period(year, half)
-        flash(t("period_created") if created else t("period_exists"), "success" if created else "warning")
-        if nxt == "invoices":
-            return redirect(url_for("invoices_period", year=year, half=half))
-        return redirect(url_for("trainings_period", year=year, half=half))
 
     @app.route("/trainings/learners-template")
     @admin_required
