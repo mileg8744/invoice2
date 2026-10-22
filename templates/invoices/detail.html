@@ -84,7 +84,6 @@
       </dd>
       <dt>{{ t('currency') }} / {{ t('rate') }}</dt><dd>{{ row.currency }} · {{ row.exchange_rate | rate }} ({{ row.rate_date | ymd }})</dd>
       <dt>{{ t('net_due') }}</dt><dd><b>{{ row.currency }} {{ row.amount_fx | fx }}</b></dd>
-      <dt>{{ t('vat') }}</dt><dd>{{ t('exempt') }}</dd>
     </dl>
   </section>
 </div>
