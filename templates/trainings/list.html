@@ -54,6 +54,12 @@
       <button class="btn btn-navy" type="submit" {% if not rows %}disabled{% endif %}>{{ t('bulk_from_trainings') }}</button>
     </div>
   </div>
+  <div class="mt-3">
+    <a class="btn btn-outline-navy" href="http://www.smbs.biz/ExRate/TodayExRate.jsp" target="_blank" rel="noopener noreferrer">
+      <i class="bi bi-search"></i> {{ t('fx_lookup') }}
+    </a>
+    <span class="muted ms-2">{{ t('fx_lookup_help') }}</span>
+  </div>
 </div>
 <section class="card-panel">
   <div class="table-responsive">

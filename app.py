@@ -1916,15 +1916,33 @@ def create_app():
             changed = True
         return changed
 
+    def invoice_entity_label(invoice):
+        sub = getattr(invoice, "subsidiary", None)
+        lang = session.get("lang", "ko")
+        billed = (getattr(invoice, "billed_name", None) or "").strip()
+        name_ko = (getattr(sub, "name_ko", None) or "").strip() if sub else ""
+        name_en = (getattr(sub, "name_en", None) or "").strip() if sub else ""
+        if lang == "en":
+            return billed or name_en or name_ko
+        return name_ko or billed or name_en
+
     def invoice_roster(invoice):
         code = entity_code_of(invoice)
+        entity = invoice_entity_label(invoice)
         rows = []
         for item in invoice.items or []:
             program = (item.description or invoice.education_name or "").strip()
+            if item.training_id:
+                sess = object_session(item) or object_session(invoice)
+                training = sess.get(Training, item.training_id) if sess else None
+                if training:
+                    program = (training.title or training.title_en or program).strip()
             for person in roster_for_item(item, code):
                 rows.append(
                     {
                         "program": program,
+                        "entity": entity,
+                        "entity_code": code,
                         "name": person.get("name") or "",
                         "email": person.get("email") or "",
                     }
@@ -2313,6 +2331,44 @@ def create_app():
             bio,
             as_attachment=True,
             download_name="training_learners_template.xlsx",
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    @app.route("/trainings/entity-codes")
+    @admin_required
+    def training_entity_codes():
+        db = Session()
+        lang = session.get("lang", "ko")
+        rows = (
+            db.query(Subsidiary)
+            .order_by(
+                Subsidiary.country.asc(),
+                Subsidiary.name_ko.asc(),
+                Subsidiary.code.asc(),
+                Subsidiary.id.asc(),
+            )
+            .all()
+        )
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "entity_codes"
+        ws.append([t("country"), t("entity_code_excel_name"), t("entity_code_excel_code")])
+        for row in rows:
+            country = (row.country_en or row.country or "").strip() if lang == "en" else (row.country or row.country_en or "").strip()
+            official = (row.name_ko or "").strip() or (row.name_en or "").strip()
+            ws.append([country, official, row.code or ""])
+        ws.column_dimensions["A"].width = 18
+        ws.column_dimensions["B"].width = 48
+        ws.column_dimensions["C"].width = 18
+        ws.auto_filter.ref = f"A1:C{ws.max_row}"
+        ws.freeze_panes = "A2"
+        bio = BytesIO()
+        wb.save(bio)
+        bio.seek(0)
+        return send_file(
+            bio,
+            as_attachment=True,
+            download_name="overseas_entity_codes.xlsx",
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 

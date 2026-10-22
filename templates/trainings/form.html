@@ -45,9 +45,14 @@
       </div>
     </div>
     <div class="mt-3">
-      <label class="form-label">{{ t('training_learners') }}</label>
-      <textarea class="form-control" name="learners" rows="8" placeholder="{{ t('training_learners_hint') }}">{{ row.learners if row else '' }}</textarea>
-      <p class="muted mt-2 mb-0">{{ t('training_learners_hint') }}</p>
+      <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+        <label class="form-label mb-0">{{ t('training_learners') }}</label>
+        <a class="btn btn-ghost btn-sm" href="{{ url_for('training_entity_codes') }}">
+          <i class="bi bi-file-earmark-excel"></i> {{ t('entity_code_excel') }}
+        </a>
+      </div>
+      <textarea class="form-control mt-2" name="learners" rows="8" placeholder="{{ t('training_learners_hint') }}">{{ row.learners if row else '' }}</textarea>
+      <p class="muted mt-2 mb-0">{{ t('training_learners_hint') }} · {{ t('entity_code_excel_help') }}</p>
     </div>
     <div class="calc-box mt-4" id="trainingFxBox">
       <div class="muted">{{ t('calc_preview') }} · {{ t('fx_calc') }}</div>
@@ -84,6 +89,7 @@
     <label class="form-label">{{ t('learner_excel') }}</label>
     <p class="muted">{{ t('learner_excel_help') }}</p>
     <form class="upload-inline wrap" method="post" action="{{ url_for('training_learners_upload', year=period.year, half=period.half, tid=row.id) }}" enctype="multipart/form-data">
+      <a class="btn btn-ghost" href="{{ url_for('training_entity_codes') }}">{{ t('entity_code_excel') }}</a>
       <a class="btn btn-ghost" href="{{ url_for('training_learners_template') }}">{{ t('learner_excel_template') }}</a>
       <input class="form-control" type="file" name="file" accept=".xlsx,.xls,.csv" required>
       <button class="btn btn-outline-navy" type="submit">{{ t('upload') }}</button>

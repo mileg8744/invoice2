@@ -135,6 +135,7 @@
         <tr>
           <th style="width:72px">#</th>
           <th>{{ t('program_name') }}</th>
+          <th>{{ t('subsidiary') }}</th>
           <th>{{ t('learner_name') }}</th>
           <th>{{ t('learner_email') }}</th>
         </tr>
@@ -144,11 +145,15 @@
         <tr>
           <td class="mono">{{ loop.index }}</td>
           <td>{{ person.program or '-' }}</td>
+          <td>
+            {{ person.entity or '-' }}
+            {% if person.entity_code %}<div class="tiny mono">{{ person.entity_code }}</div>{% endif %}
+          </td>
           <td>{{ person.name or '-' }}</td>
           <td class="mono">{{ person.email or '-' }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="4" class="empty">{{ t('no_learners') }}</td></tr>
+        <tr><td colspan="5" class="empty">{{ t('no_learners') }}</td></tr>
         {% endfor %}
       </tbody>
     </table>

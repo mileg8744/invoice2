@@ -171,9 +171,8 @@ def generate_invoice_pdf(invoice, output_path: Path, show_bank: bool = True) -> 
         ("CURRENCY", invoice.currency or ""),
         ("FX RATE", fx_text),
         ("RATE DATE", invoice.rate_date.strftime("%Y-%m-%d") if invoice.rate_date else ""),
-        ("VAT", "Exempt 0%"),
     ]
-    meta_w = content_w / 4
+    meta_w = content_w / 3
     for i, (label, value) in enumerate(meta):
         mx = margin + i * meta_w
         if i:
@@ -276,18 +275,12 @@ def generate_invoice_pdf(invoice, output_path: Path, show_bank: bool = True) -> 
 
     y -= 7 * mm
     total_x = margin + content_w
-    vat_amount = _money(cur, 0)
     due_amount = _money(cur, invoice.amount_fx)
     due_label = "TOTAL AMOUNT DUE (NET)"
     amount_col_w = 48 * mm
     label_col_w = 62 * mm
     col_gap = 10 * mm
     block_left = total_x - (label_col_w + col_gap + amount_col_w)
-    c.setFillColor(MUTED)
-    c.setFont(FONT, 8)
-    c.drawString(block_left, y, "VAT (Exempt)")
-    c.drawRightString(total_x, y, vat_amount)
-    y -= 6.4 * mm
     c.setStrokeColor(NAVY)
     c.setLineWidth(0.7)
     c.line(block_left, y + 3.6 * mm, total_x, y + 3.6 * mm)
