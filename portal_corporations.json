@@ -25,9 +25,7 @@
     "invoice_legal_name": "POSCO America Corporation",
     "corporation_type": "대표법인",
     "address": "1660 L Street NW #700, Washington, DC 20036",
-    "contact_emails": [
-      "bson@poscoamerica.com"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -57,10 +55,7 @@
     "invoice_legal_name": "POSCO-China Holding Corp.",
     "corporation_type": "대표법인",
     "address": "35th Floor, POSCO Center, Hongtai East Street, Dawangjing Science and Technology Business Park, Chaoyang District, Beijing, China.",
-    "contact_emails": [
-      "cuiailan@posco.net",
-      "nania0709@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -150,11 +145,7 @@
     "invoice_legal_name": "POSCO(Suzhou) Automotive Processing Center Co., Ltd.",
     "corporation_type": "가공센터/물류법인",
     "address": "No.8 Pengqing Road, Huaqiao Kunshan, Jiangsu China 215332",
-    "contact_emails": [
-      "menglei@posco.net",
-      "wangshuo@posco.net",
-      "chenzg@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -169,11 +160,7 @@
     "invoice_legal_name": "POSCO CHONG QING AUTOMOTIVE PROCESSING CENTER CO.,LTD.",
     "corporation_type": "가공센터/물류법인",
     "address": "NO.16 BAOYUNROAD,LONGXING TOWN,YUBEI DISTRICT,CHONG QING,CHINA 401135",
-    "contact_emails": [
-      "menglei@posco.net",
-      "wangshuo@posco.net",
-      "chenzg@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -188,11 +175,7 @@
     "invoice_legal_name": "POSCO-CFPC Co., Ltd.",
     "corporation_type": "가공센터/물류법인",
     "address": "Guanglong Industrial Park,Chencun Town, Shunde, Foshan, Guangdong,China. 528316",
-    "contact_emails": [
-      "menglei@posco.net",
-      "wangshuo@posco.net",
-      "chenzg@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -207,11 +190,7 @@
     "invoice_legal_name": "POSCO(Liaoning) Automotive Processing Center Co., Ltd.",
     "corporation_type": "가공센터/물류법인",
     "address": "No.123 Jianshe Road, Dadong District, Shenyang, P.R.China 110122",
-    "contact_emails": [
-      "menglei@posco.net",
-      "wangshuo@posco.net",
-      "chenzg@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -226,11 +205,7 @@
     "invoice_legal_name": "POSCO-CTPC",
     "corporation_type": "가공센터/물류법인",
     "address": "No.288 Zhongnan Second Avenue,TEDA,Tianjin,China(West Zone)",
-    "contact_emails": [
-      "menglei@posco.net",
-      "wangshuo@posco.net",
-      "chenzg@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -245,11 +220,7 @@
     "invoice_legal_name": "POSCO(Suzhou) Automotive Processing Center Co., Ltd. WuHu Branch",
     "corporation_type": "가공센터/물류법인",
     "address": "Yinhu Road(North)Taishan Road,Economic&Technological-DevelopmentZone,Wuhu,Anhui,china",
-    "contact_emails": [
-      "menglei@posco.net",
-      "wangshuo@posco.net",
-      "chenzg@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -264,11 +235,7 @@
     "invoice_legal_name": "POSCO(Yantai）Automotive Processing Center Co., Ltd.",
     "corporation_type": "가공센터/물류법인",
     "address": "110 Chang Jiang Road, YEDA, Yantai, Shandong, China 264006",
-    "contact_emails": [
-      "menglei@posco.net",
-      "wangshuo@posco.net",
-      "chenzg@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -283,9 +250,7 @@
     "invoice_legal_name": "POSCO Japan PC",
     "corporation_type": "가공센터/물류법인",
     "address": "1-6-6 Jinno Nishimachi Toyohashi-si, Aichi-ken, JAPAN",
-    "contact_emails": [
-      "jylee4577@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -300,9 +265,7 @@
     "invoice_legal_name": "PT. KRAKATAU POSCO",
     "corporation_type": "대표법인",
     "address": "PT.KRAKATAU POSCO, JI. Afrika No.2 Kawasan Industri KS, Cilegon 42443, Banten, Indonesia",
-    "contact_emails": [
-      "sayid.bs@krakatauposco.co.id"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -332,10 +295,7 @@
     "invoice_legal_name": "POSCO-VIETNAM Co., Ltd.",
     "corporation_type": "대표법인",
     "address": "Lot 1, Phu My 2 Industrial Zone, Phu My Ward, Ho Chi Minh City, Vietnam",
-    "contact_emails": [
-      "giang.201627@posco.net",
-      "kimngan@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -350,10 +310,7 @@
     "invoice_legal_name": "POSCO YAMATO VINA",
     "corporation_type": "생산법인",
     "address": "N1 Street, Phu My 2 Industrial Zone, Phu My Ward, Ho Chi Minh City, Vietnam",
-    "contact_emails": [
-      "lynguyen189@pyvina.com",
-      "hongthanh@pyvina.com"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -368,10 +325,7 @@
     "invoice_legal_name": "POSCO VST CO., LTD.",
     "corporation_type": "생산법인",
     "address": "319B Road, Nhon Trach 1 I.Z, Nhon Trach Ward, Dong Nai City, Viet Nam",
-    "contact_emails": [
-      "nguyen.thientrang@posco.net",
-      "le.hien@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -386,9 +340,7 @@
     "invoice_legal_name": "POSCO VIETNAM PROCESSING CENTER JOINT STOCK COMPANY - DONG NAI BRANCH - VHPC",
     "corporation_type": "가공센터/물류법인",
     "address": "Nhon Trach V IDZ, Phuoc An Commune, Dong Nai City, Vietnam.",
-    "contact_emails": [
-      "thanh.nguyen@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -403,9 +355,7 @@
     "invoice_legal_name": "POSCO VIETNAM PROCESSING CENTER JOINT STOCK COMPANY",
     "corporation_type": "가공센터/물류법인",
     "address": "Lot D5, Phuc Dien Industrial Zone, Mao Dien commune, Hai Phong City, Viet Nam",
-    "contact_emails": [
-      "thanh.nguyen@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -420,10 +370,7 @@
     "invoice_legal_name": "POSCO COATED STEEL (THAILAND) CO., LTD.",
     "corporation_type": "대표법인",
     "address": "(Head office) 7/448 Moo 6, Amata City Industrial Estate, Mabyangporn Sub-district, Pluakdaeng District, Rayong Province 21140 / TAX ID : 0105556189144",
-    "contact_emails": [
-      "piyaporn.bo@poscotcs.com",
-      "Somrudee.ch@poscotcs.com"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -438,13 +385,7 @@
     "invoice_legal_name": "POSCO-Thainox Public Company Limited",
     "corporation_type": "생산법인",
     "address": "Emporium Tower, Floor 15/6-8, 622 Sukhumvit Road, Klongtan, Klongtoey, Bangkok 10110, Thailand",
-    "contact_emails": [
-      "sm.roh_th@poscothainox.com",
-      "aphiradee@poscothainox.com",
-      "thkang@posco.com",
-      "darakorn@poscothainox.com",
-      "supathanya@poscothainox.com"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -459,9 +400,7 @@
     "invoice_legal_name": "POSCO(Thailand) Co., Ltd",
     "corporation_type": "가공센터/물류법인",
     "address": "128/1 Moo5 Wellgrow Industrial Estate T.Bangsamak A.Bangpakong Chachoengsao, Thailand 24180",
-    "contact_emails": [
-      "natthanicha_c@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -491,9 +430,7 @@
     "invoice_legal_name": "POSCO-MKPC SDN BHD",
     "corporation_type": "가공센터/물류법인",
     "address": "No.19, Persiaran Sultan Alauddin /KU17, Bandar Sultan Suleiman, 42000 Klang,Selangor, Malaysia",
-    "contact_emails": [
-      "jessie.chok@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -523,9 +460,7 @@
     "invoice_legal_name": "POSCO Maharashtra Steel Private Limited",
     "corporation_type": "생산법인",
     "address": "7th Floor, World Trade Center 1, Kharadi, MIDC Knowledge Park, Pune - 411014, Maharashtra, India",
-    "contact_emails": [
-      "chiranjeev.m@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -540,9 +475,7 @@
     "invoice_legal_name": "Posco India Processing Centre Pvt. Ltd (Centre -Chennai)",
     "corporation_type": "가공센터/물류법인",
     "address": "Plot No.RNS 9 12-14, Sipcot Industrial Growth Centre, Vadakkupattu Village, Kanchipuram, Tamil Nadu, 603204",
-    "contact_emails": [
-      "vidyav@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -557,9 +490,7 @@
     "invoice_legal_name": "Posco India Processing Centre Pvt. Ltd (Centre -Delhi)",
     "corporation_type": "가공센터/물류법인",
     "address": "09th Floor, Wing B ,Milestone Experion Centre, NH-48, Sector 15,Gurgaon, Haryana 122001",
-    "contact_emails": [
-      "vidyav@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -574,9 +505,7 @@
     "invoice_legal_name": "Posco India Processing Centre Pvt. Ltd (Centre -Ahmedabad)",
     "corporation_type": "가공센터/물류법인",
     "address": "E-564, SANAND ENGINEERING ESTATE, GIDC, AHMEDABAD, GUJARAT - 382110",
-    "contact_emails": [
-      "vidyav@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -591,9 +520,7 @@
     "invoice_legal_name": "Posco India Processing Centre Pvt. Ltd (Centre -Chennai)",
     "corporation_type": "가공센터/물류법인",
     "address": "Plot No.RNS 9 12-14, Sipcot Industrial Growth Centre, Vadakkupattu Village, Kanchipuram, Tamil Nadu, 603204",
-    "contact_emails": [
-      "vidyav@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -608,9 +535,7 @@
     "invoice_legal_name": "POSCO-India Pune Processing Center. Pvt. Ltd.",
     "corporation_type": "가공센터/물류법인",
     "address": "PLOT NO A-9. FLORICULTURE PARK. TALEGAON MIDC, PUNE 410507 , Maharashtra INDIA.",
-    "contact_emails": [
-      "vidyav@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -625,9 +550,7 @@
     "invoice_legal_name": "POSCO MEXICO S.A. DE C.V. (RFC : PME0612078F7)",
     "corporation_type": "대표법인",
     "address": "Boulevard de los rios sin numero, Colonia Puerto industrial de Altamira, C.P 89603, Altamira, Tamaulipas, Mexico",
-    "contact_emails": [
-      "park.alfonso@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -642,9 +565,7 @@
     "invoice_legal_name": "POSCO MPPC S.A. de C.V.",
     "corporation_type": "가공센터/물류법인",
     "address": "Carretera 190Km. 0.550 Santa Ana Xalmimilulco, Municipio de Huejotzingo, Puebla. 74169 MEXICO",
-    "contact_emails": [
-      "seongyun.jeong@poscomppc.com"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -674,9 +595,7 @@
     "invoice_legal_name": "POSCO America Alabama Processing Center Co., Ltd.",
     "corporation_type": "가공센터/물류법인",
     "address": "6500 Jefferson Metropolitan Parkway, McCalla, AL 35111",
-    "contact_emails": [
-      "hyein.cheon@poscoaapc.com"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -751,9 +670,7 @@
     "invoice_legal_name": "POSCO ASSAN TST STEEL INDUSTRY",
     "corporation_type": "생산법인",
     "address": "POSCO ASSAN TST, Asım Kibar Organize Sanayi Bolgesi 1. cadde No:4 41310 Alikahya Izmit / KOCAELI",
-    "contact_emails": [
-      "melis.uludag@poscoassan.com"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -768,10 +685,7 @@
     "invoice_legal_name": "POSCO TNPC Otomotiv Celik San. Ve Tic. A.S",
     "corporation_type": "가공센터/물류법인",
     "address": "HASANAGA OSB Mah. 13. Cadde No:4 NILUFER/BURSA TURKIYE",
-    "contact_emails": [
-      "jylee2014@posco.net",
-      "kitae@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": true
   },
@@ -831,11 +745,7 @@
     "invoice_legal_name": "",
     "corporation_type": "가공센터/물류법인",
     "address": "",
-    "contact_emails": [
-      "menglei@posco.net",
-      "wangshuo@posco.net",
-      "chenzg@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": false
   },
@@ -850,11 +760,7 @@
     "invoice_legal_name": "",
     "corporation_type": "가공센터/물류법인",
     "address": "",
-    "contact_emails": [
-      "menglei@posco.net",
-      "wangshuo@posco.net",
-      "chenzg@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": false
   },
@@ -869,11 +775,7 @@
     "invoice_legal_name": "",
     "corporation_type": "가공센터/물류법인",
     "address": "",
-    "contact_emails": [
-      "menglei@posco.net",
-      "wangshuo@posco.net",
-      "chenzg@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": false
   },
@@ -888,11 +790,7 @@
     "invoice_legal_name": "",
     "corporation_type": "가공센터/물류법인",
     "address": "",
-    "contact_emails": [
-      "menglei@posco.net",
-      "wangshuo@posco.net",
-      "chenzg@posco.net"
-    ],
+    "contact_emails": [],
     "hr_expat_emails": [],
     "active": false
   },
