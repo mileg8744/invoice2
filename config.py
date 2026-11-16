@@ -15,10 +15,18 @@ POSCO_CI_PATH = STATIC_DIR / "img" / "pgu_ci_white.png"
 load_dotenv(BASE_DIR / ".env", override=True)
 
 
+def _on_render() -> bool:
+    return (os.environ.get("RENDER") or "").strip().lower() in {"1", "true", "yes"}
+
+
 def resolve_database_uri() -> str:
+    sqlite_uri = f"sqlite:///{(INSTANCE_DIR / 'pgu_invoices.db').as_posix()}"
+    # Local PC keeps using SQLite even if a Render DATABASE_URL is in the user environment.
+    if not _on_render():
+        return sqlite_uri
     raw = (os.environ.get("DATABASE_URL") or "").strip()
     if not raw:
-        return f"sqlite:///{(INSTANCE_DIR / 'pgu_invoices.db').as_posix()}"
+        return sqlite_uri
     if raw.startswith("postgres://"):
         raw = "postgresql+psycopg2://" + raw[len("postgres://") :]
     elif raw.startswith("postgresql://"):
