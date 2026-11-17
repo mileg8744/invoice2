@@ -10,3 +10,6 @@ gmail_oauth.json
 client_secret*.json
 credentials.json
 token.json
+apply_local_excel_refresh.py
+inspect_migration_postgres.py
+migrate_sqlite_to_postgres.py
