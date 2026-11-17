@@ -123,7 +123,10 @@
 </section>
 </form>
 {% for row in rows %}
-<form id="copy-{{ row.id }}" method="post" action="{{ url_for('training_copy', year=period.year, half=period.half, tid=row.id) }}"></form>
+<form id="copy-{{ row.id }}" method="post" action="/trainings/{{ row.id }}/copy">
+  <input type="hidden" name="year" value="{{ period.year }}">
+  <input type="hidden" name="half" value="{{ period.half }}">
+</form>
 <form id="del-{{ row.id }}" method="post" action="{{ url_for('training_delete', tid=row.id) }}">
   <input type="hidden" name="year" value="{{ period.year }}">
   <input type="hidden" name="half" value="{{ period.half }}">

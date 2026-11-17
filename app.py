@@ -2284,14 +2284,22 @@ def create_app():
         extras.update(training_form_dates(year, half, row))
         return render_template("trainings/form.html", row=row, **ctx, **extras)
 
-    @app.route("/trainings/<int:year>/h<int:half>/<int:tid>/copy", methods=["POST"])
+    @app.route("/trainings/<int:tid>/copy", methods=["POST"], endpoint="training_copy")
     @admin_required
-    def training_copy(year, half, tid):
-        year, half = parse_period_pair(year, half)
+    def training_copy(tid):
         db = Session()
         src = db.get(Training, tid)
-        back = url_for("trainings_period", year=year, half=half)
-        if not src or not training_in_period(src, year, half):
+        year = request.form.get("year", type=int)
+        half = request.form.get("half", type=int)
+        if src and not (year and half in (1, 2)):
+            year = src.start_date.year if src.start_date else date.today().year
+            half = half_from_date(src.start_date) or 1
+        if year and half in (1, 2):
+            year, half = parse_period_pair(year, half)
+            back = url_for("trainings_period", year=year, half=half)
+        else:
+            back = url_for("trainings")
+        if not src or (year and half in (1, 2) and not training_in_period(src, year, half)):
             flash(t("not_found"), "danger")
             return redirect(back)
         row = duplicate_training(src)
@@ -2300,7 +2308,9 @@ def create_app():
         log_action(db, "training", row.id, "COPY", f"from={src.id};{src.title}")
         db.commit()
         flash(t("training_copied"), "success")
-        return redirect(url_for("training_edit_period", year=year, half=half, tid=row.id))
+        copy_year = row.start_date.year if row.start_date else year
+        copy_half = half_from_date(row.start_date) or half or 1
+        return redirect(url_for("training_edit_period", year=copy_year, half=copy_half, tid=row.id))
 
     @app.route("/trainings/<int:tid>/delete", methods=["POST"])
     @admin_required
