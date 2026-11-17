@@ -109,6 +109,7 @@
           </td>
           <td class="nowrap">
             <a class="btn btn-sm btn-outline-navy" href="{{ url_for('training_edit_period', year=period.year, half=period.half, tid=row.id) }}">{{ t('edit') }}</a>
+            <button class="btn btn-sm btn-ghost" type="submit" form="copy-{{ row.id }}">{{ t('copy_training') }}</button>
             <button class="btn btn-sm btn-ghost" type="submit" form="del-{{ row.id }}" onclick="return confirm('{{ t('confirm_delete') }}');">{{ t('delete') }}</button>
           </td>
         </tr>
@@ -122,6 +123,7 @@
 </section>
 </form>
 {% for row in rows %}
+<form id="copy-{{ row.id }}" method="post" action="{{ url_for('training_copy', year=period.year, half=period.half, tid=row.id) }}"></form>
 <form id="del-{{ row.id }}" method="post" action="{{ url_for('training_delete', tid=row.id) }}">
   <input type="hidden" name="year" value="{{ period.year }}">
   <input type="hidden" name="half" value="{{ period.half }}">
