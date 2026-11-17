@@ -11,6 +11,7 @@ OUTBOX_DIR = BASE_DIR / "outbox"
 STATIC_DIR = BASE_DIR / "static"
 STAMP_PATH = INSTANCE_DIR / "pgu_stamp.png"
 POSCO_CI_PATH = STATIC_DIR / "img" / "pgu_ci_white.png"
+ENTITY_CODES_XLSX = STATIC_DIR / "data" / "overseas_entity_codes.xlsx"
 
 load_dotenv(BASE_DIR / ".env", override=True)
 

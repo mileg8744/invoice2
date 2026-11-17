@@ -31,7 +31,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from PIL import Image
 from werkzeug.utils import secure_filename
 
-from config import Config, INSTANCE_DIR, PDF_DIR, STAMP_PATH, STATIC_DIR, UPLOAD_DIR
+from config import Config, ENTITY_CODES_XLSX, INSTANCE_DIR, PDF_DIR, STAMP_PATH, STATIC_DIR, UPLOAD_DIR
 from i18n import translate
 from mailer import (
     draft_mail_content,
@@ -2345,36 +2345,10 @@ def create_app():
     @app.route("/trainings/entity-codes")
     @admin_required
     def training_entity_codes():
-        db = Session()
-        lang = session.get("lang", "ko")
-        rows = (
-            db.query(Subsidiary)
-            .order_by(
-                Subsidiary.country.asc(),
-                Subsidiary.name_ko.asc(),
-                Subsidiary.code.asc(),
-                Subsidiary.id.asc(),
-            )
-            .all()
-        )
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "entity_codes"
-        ws.append([t("country"), t("entity_code_excel_name"), t("entity_code_excel_code")])
-        for row in rows:
-            country = (row.country_en or row.country or "").strip() if lang == "en" else (row.country or row.country_en or "").strip()
-            official = (row.name_ko or "").strip() or (row.name_en or "").strip()
-            ws.append([country, official, row.code or ""])
-        ws.column_dimensions["A"].width = 18
-        ws.column_dimensions["B"].width = 48
-        ws.column_dimensions["C"].width = 18
-        ws.auto_filter.ref = f"A1:C{ws.max_row}"
-        ws.freeze_panes = "A2"
-        bio = BytesIO()
-        wb.save(bio)
-        bio.seek(0)
+        if not ENTITY_CODES_XLSX.exists():
+            abort(404)
         return send_file(
-            bio,
+            ENTITY_CODES_XLSX,
             as_attachment=True,
             download_name="overseas_entity_codes.xlsx",
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
