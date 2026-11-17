@@ -1779,6 +1779,8 @@ def create_app():
         row.instructor = (form.get("instructor") or "").strip()
         row.unit_price_krw = _as_money(form.get("unit_price_krw"))
         row.learners = (form.get("learners") or "").strip()
+        if not row.learners:
+            raise RuntimeError("learners_required")
         raw_session = form.get("session_no")
         if raw_session in (None, ""):
             row.session_no = infer_session(row.title, row.title_en)
@@ -1792,6 +1794,28 @@ def create_app():
             row.learner_count = max(_as_int(raw_count, default=0), 0)
         row.updated_at = utcnow()
         return row
+
+    def copy_suffix(text, suffix):
+        raw = (text or "").strip()
+        mark = suffix.strip()
+        if not raw:
+            return mark[:300]
+        if raw.endswith(mark):
+            return raw[:300]
+        return f"{raw}{suffix}"[:300]
+
+    def duplicate_training(src):
+        return Training(
+            title=copy_suffix(src.title, " (복사)"),
+            title_en=copy_suffix(src.title_en or src.title, " (copy)"),
+            start_date=src.start_date,
+            end_date=src.end_date,
+            instructor=src.instructor or "",
+            unit_price_krw=src.unit_price_krw or 0,
+            learner_count=int(src.learner_count or 0),
+            session_no=int(src.session_no or 0),
+            learners=src.learners or "",
+        )
 
     def assert_training_period(row, year, half):
         if not training_in_period(row, year, half):
@@ -2259,6 +2283,24 @@ def create_app():
         extras = training_form_extras(db, row)
         extras.update(training_form_dates(year, half, row))
         return render_template("trainings/form.html", row=row, **ctx, **extras)
+
+    @app.route("/trainings/<int:year>/h<int:half>/<int:tid>/copy", methods=["POST"])
+    @admin_required
+    def training_copy(year, half, tid):
+        year, half = parse_period_pair(year, half)
+        db = Session()
+        src = db.get(Training, tid)
+        back = url_for("trainings_period", year=year, half=half)
+        if not src or not training_in_period(src, year, half):
+            flash(t("not_found"), "danger")
+            return redirect(back)
+        row = duplicate_training(src)
+        db.add(row)
+        db.flush()
+        log_action(db, "training", row.id, "COPY", f"from={src.id};{src.title}")
+        db.commit()
+        flash(t("training_copied"), "success")
+        return redirect(url_for("training_edit_period", year=year, half=half, tid=row.id))
 
     @app.route("/trainings/<int:tid>/delete", methods=["POST"])
     @admin_required

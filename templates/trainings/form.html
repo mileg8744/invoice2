@@ -51,7 +51,7 @@
           <i class="bi bi-file-earmark-excel"></i> {{ t('entity_code_excel') }}
         </a>
       </div>
-      <textarea class="form-control mt-2" name="learners" rows="8" placeholder="{{ t('training_learners_hint') }}">{{ row.learners if row else '' }}</textarea>
+      <textarea class="form-control mt-2" name="learners" rows="8" placeholder="{{ t('training_learners_hint') }}" required>{{ row.learners if row else '' }}</textarea>
       <p class="muted mt-2 mb-0">{{ t('training_learners_hint') }} · {{ t('entity_code_excel_help') }}</p>
     </div>
     <div class="calc-box mt-4" id="trainingFxBox">
