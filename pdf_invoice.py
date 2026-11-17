@@ -1,5 +1,6 @@
 """English A4 invoice PDF matching the official POSCO Group University form."""
 
+from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
 from pathlib import Path
 
@@ -34,18 +35,27 @@ RULE = HexColor("#E6E9EE")
 BAND = HexColor("#F4F6F8")
 
 
+def _as_money(value) -> Decimal:
+    try:
+        raw = value if isinstance(value, Decimal) else Decimal(str(value or 0))
+        return raw.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except Exception:
+        return Decimal("0.00")
+
+
 def _money(currency: str, value) -> str:
-    return f"{currency} {float(value):,.2f}"
+    return f"{currency} {_as_money(value):,.2f}"
 
 
 def _num(value) -> str:
-    return f"{float(value):,.2f}"
+    return f"{_as_money(value):,.2f}"
 
 
-def money_fx_amount(amount_krw, rate) -> float:
+def money_fx_amount(amount_krw, rate) -> Decimal:
     if not rate:
-        return 0.0
-    return round(float(amount_krw) / float(rate), 2)
+        return Decimal("0.00")
+    val = _as_money(amount_krw) / Decimal(str(rate))
+    return val.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def _width(text, font, size):
@@ -248,7 +258,7 @@ def generate_invoice_pdf(invoice, output_path: Path, show_bank: bool = True) -> 
             f"{ps.strftime('%Y-%m-%d')} ~ {pe.strftime('%Y-%m-%d')}" if ps and pe else period
         )
         line_fx = money_fx_amount(amount_krw, invoice.exchange_rate)
-        unit_fx = (float(line_fx) / qty) if qty else 0
+        unit_fx = (line_fx / Decimal(qty)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if qty else Decimal("0.00")
         desc_lines = _wrap_width(title, FONT, body_size, col_desc - 4 * mm)
         row_h = max((8.5 if compact else 10) * mm, 3.4 * mm * len(desc_lines) + 4.2 * mm)
         if y - row_h < 62 * mm:

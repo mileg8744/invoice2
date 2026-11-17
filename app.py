@@ -7,6 +7,8 @@ import csv
 import json
 import logging
 import re
+import sqlite3
+import zipfile
 
 from flask import (
     Flask,
@@ -21,9 +23,10 @@ from flask import (
     session,
     url_for,
 )
+from flask.json.provider import DefaultJSONProvider
 from openpyxl import Workbook, load_workbook
 from sqlalchemy import create_engine, func, inspect, or_
-from sqlalchemy.orm import object_session, scoped_session, sessionmaker
+from sqlalchemy.orm import class_mapper, object_session, scoped_session, sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
 from PIL import Image
 from werkzeug.utils import secure_filename
@@ -66,10 +69,30 @@ from corporation_master import (
 )
 
 STATUS_ORDER = ["draft", "issued", "acknowledged", "paid"]
+MONEY_CENTS = Decimal("0.01")
+
+
+def format_krw(v) -> str:
+    try:
+        d = Decimal(str(v if v is not None else 0)).quantize(MONEY_CENTS, rounding=ROUND_HALF_UP)
+    except Exception:
+        return "0"
+    if d == d.to_integral():
+        return f"{int(d):,}"
+    return f"{d:,.2f}"
+
+
+class DecimalJSONProvider(DefaultJSONProvider):
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return format(o.quantize(MONEY_CENTS, rounding=ROUND_HALF_UP), "f")
+        return super().default(o)
 
 
 def create_app():
     app = Flask(__name__)
+    app.json_provider_class = DecimalJSONProvider
+    app.json = DecimalJSONProvider(app)
     app.config.from_object(Config)
     mail_log = logging.getLogger("pgu.mail")
     mail_log.setLevel(logging.INFO)
@@ -289,10 +312,7 @@ def create_app():
 
     @app.template_filter("krw")
     def krw_filter(v):
-        try:
-            return f"{int(v):,}"
-        except (TypeError, ValueError):
-            return "0"
+        return format_krw(v)
 
     @app.template_filter("fx")
     def fx_filter(v):
@@ -548,6 +568,15 @@ def create_app():
         except ValueError:
             return default
 
+    def _as_money(value, default="0"):
+        if value in (None, ""):
+            return Decimal(str(default)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        try:
+            raw = str(value).replace(",", "").strip()
+            return Decimal(raw).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        except Exception:
+            return Decimal(str(default)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
     def _as_rate(value, default=0.0):
         if value in (None, ""):
             return default
@@ -753,11 +782,13 @@ def create_app():
     def apply_invoice_totals(invoice):
         if invoice.items:
             invoice.qty = sum(it.qty for it in invoice.items) or invoice.qty
-            invoice.amount_krw = sum(it.amount_krw for it in invoice.items)
+            invoice.amount_krw = sum((it.amount_krw or 0) for it in invoice.items)
             if invoice.qty:
-                invoice.unit_price_krw = int(round(invoice.amount_krw / invoice.qty))
+                invoice.unit_price_krw = (
+                    Decimal(str(invoice.amount_krw)) / Decimal(invoice.qty)
+                ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         else:
-            invoice.amount_krw = int(invoice.qty) * int(invoice.unit_price_krw)
+            invoice.amount_krw = Decimal(str(invoice.qty or 0)) * Decimal(str(invoice.unit_price_krw or 0))
         invoice.amount_fx = money_fx(invoice.amount_krw, invoice.exchange_rate)
 
     def apply_invoice_header_from_items(invoice):
@@ -1746,7 +1777,7 @@ def create_app():
         row.start_date = _as_date(form.get("start_date"))
         row.end_date = _as_date(form.get("end_date"))
         row.instructor = (form.get("instructor") or "").strip()
-        row.unit_price_krw = _as_int(form.get("unit_price_krw"))
+        row.unit_price_krw = _as_money(form.get("unit_price_krw"))
         row.learners = (form.get("learners") or "").strip()
         raw_session = form.get("session_no")
         if raw_session in (None, ""):
@@ -1838,8 +1869,8 @@ def create_app():
                 continue
             people = load_roster(item) or learners_for_entity(training, code)
             qty = billed_qty_for_entity(training, code, people, fallback=item.qty)
-            unit = int(item.unit_price_krw or training.unit_price_krw or 0)
-            amount = qty * unit
+            unit = Decimal(str(item.unit_price_krw or training.unit_price_krw or 0))
+            amount = Decimal(qty) * unit
             if item.qty != qty or item.amount_krw != amount:
                 item.qty = qty
                 item.unit_price_krw = unit
@@ -2402,7 +2433,7 @@ def create_app():
             "start_date": row.start_date.strftime("%Y-%m-%d"),
             "end_date": row.end_date.strftime("%Y-%m-%d"),
             "instructor": row.instructor,
-            "unit_price_krw": row.unit_price_krw,
+            "unit_price_krw": format(Decimal(str(row.unit_price_krw or 0)).quantize(MONEY_CENTS, rounding=ROUND_HALF_UP), "f"),
         }
 
     # ---------- invoices ----------
@@ -2555,7 +2586,7 @@ def create_app():
             if not title:
                 continue
             qty = _as_int(qtys[i] if i < len(qtys) else 1, default=1) or 1
-            unit = _as_int(units[i] if i < len(units) else 0)
+            unit = _as_money(units[i] if i < len(units) else 0)
             raw_learners = learners_list[i] if i < len(learners_list) else ""
             people = parse_people_lines(raw_learners)
             tid_raw = training_ids[i] if i < len(training_ids) else ""
@@ -3581,7 +3612,7 @@ def create_app():
                 title = str(norm_key(row, "교육명", "education_name", "title")).strip()
                 instructor = str(norm_key(row, "교육담당자명", "instructor")).strip()
                 learner = str(norm_key(row, "학습자 이름", "learner_name", "learner")).strip()
-                unit = _as_int(norm_key(row, "원화 교육비", "unit_price_krw", "amount_krw"))
+                unit = _as_money(norm_key(row, "원화 교육비", "unit_price_krw", "amount_krw"))
                 period_raw = norm_key(row, "교육일정", "period")
                 start = _as_date(norm_key(row, "period_start", "start_date")) if norm_key(row, "period_start", "start_date") else None
                 end = _as_date(norm_key(row, "period_end", "end_date")) if norm_key(row, "period_end", "end_date") else None
@@ -3667,10 +3698,219 @@ def create_app():
         rows = db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(300).all()
         return render_template("logs.html", rows=rows)
 
+    def backup_cell(value):
+        if value is None:
+            return ""
+        if isinstance(value, datetime):
+            return value.strftime("%Y-%m-%d %H:%M:%S")
+        if isinstance(value, date):
+            return value.strftime("%Y-%m-%d")
+        if isinstance(value, Decimal):
+            return f"{value:.2f}"
+        if isinstance(value, bool):
+            return "Y" if value else "N"
+        return value
+
+    def append_sheet(wb, title, headers, rows):
+        ws = wb.create_sheet(title)
+        ws.append(headers)
+        for row in rows:
+            ws.append([backup_cell(v) for v in row])
+        if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
+            del wb["Sheet"]
+
+    def sqlite_db_path():
+        uri = Config.SQLALCHEMY_DATABASE_URI or ""
+        if uri.startswith("sqlite:///"):
+            return Path(uri.replace("sqlite:///", "", 1))
+        return INSTANCE_DIR / "pgu_invoices.db"
+
+    def model_columns(model, exclude=()):
+        skip = set(exclude)
+        return [prop.key for prop in class_mapper(model).column_attrs if prop.key not in skip]
+
+    @app.route("/backup")
+    @admin_required
+    def backup():
+        db = Session()
+        pdf_n = 0
+        ppt_n = 0
+        if PDF_DIR.exists():
+            pdf_n = sum(1 for p in PDF_DIR.glob("*.pdf") if not p.name.startswith("_"))
+            ppt_n = sum(1 for p in PDF_DIR.glob("*.pptx") if not p.name.startswith("_"))
+        return render_template(
+            "backup.html",
+            counts={
+                "subsidiaries": db.query(Subsidiary).count(),
+                "trainings": db.query(Training).count(),
+                "invoices": db.query(Invoice).count(),
+                "items": db.query(InvoiceItem).count(),
+                "users": db.query(User).count(),
+                "logs": db.query(AuditLog).count(),
+                "pdfs": pdf_n,
+                "ppts": ppt_n,
+            },
+            has_settings=(INSTANCE_DIR / "hq_settings.json").exists(),
+            has_stamp=STAMP_PATH.exists(),
+            has_master=MASTER_JSON.exists(),
+        )
+
+    @app.route("/backup/download")
+    @admin_required
+    def backup_download():
+        db = Session()
+        stamp = datetime.now().strftime("%Y%m%d_%H%M")
+        wb = Workbook()
+
+        def dump_model(title, model, exclude=(), extra_headers=(), extra_fn=None):
+            cols = model_columns(model, exclude=exclude)
+            headers = list(cols) + list(extra_headers)
+            rows = []
+            for row in db.query(model).order_by(model.id).all():
+                values = [getattr(row, col) for col in cols]
+                extra = extra_fn(row) if extra_fn else ()
+                rows.append(tuple(values) + tuple(extra))
+            append_sheet(wb, title, headers, rows)
+
+        def build_data_workbook():
+            dump_model("subsidiaries", Subsidiary, exclude=("emails", "hr_emails"))
+            dump_model("trainings", Training)
+            dump_model(
+                "invoices",
+                Invoice,
+                extra_headers=("subsidiary_code", "subsidiary_name_ko", "subsidiary_name_en"),
+                extra_fn=lambda r: (
+                    getattr(r.subsidiary, "code", "") or "",
+                    getattr(r.subsidiary, "name_ko", "") or "",
+                    getattr(r.subsidiary, "name_en", "") or "",
+                ),
+            )
+            dump_model(
+                "invoice_items",
+                InvoiceItem,
+                exclude=("learner_roster",),
+                extra_headers=("invoice_no",),
+                extra_fn=lambda r: ((r.invoice.invoice_no if r.invoice else "") or "",),
+            )
+            roster_rows = []
+            for inv in db.query(Invoice).order_by(Invoice.id).all():
+                for person in invoice_roster(inv):
+                    roster_rows.append(
+                        (
+                            inv.invoice_no,
+                            inv.year,
+                            inv.half,
+                            person.get("program") or "",
+                            person.get("entity") or "",
+                            person.get("entity_code") or "",
+                            person.get("name") or "",
+                        )
+                    )
+            append_sheet(
+                wb,
+                "invoice_roster",
+                ["invoice_no", "year", "half", "program", "entity", "entity_code", "learner_name"],
+                roster_rows,
+            )
+            dump_model("users", User, exclude=("password_hash",))
+            dump_model("audit_logs", AuditLog)
+            hq = load_hq_settings()
+            append_sheet(wb, "hq_settings", ["key", "value"], [(k, hq.get(k, "")) for k in hq.keys()])
+            append_sheet(
+                wb,
+                "periods",
+                ["year", "half"],
+                [(y, h) for y, h in sorted(load_declared_periods())],
+            )
+            buf = BytesIO()
+            wb.save(buf)
+            buf.seek(0)
+            return buf
+
+        xlsx_buf = build_data_workbook()
+        log_action(
+            db,
+            "backup",
+            stamp,
+            "BACKUP_EXCEL",
+            f"invoices={db.query(Invoice).count()}",
+        )
+        db.commit()
+        resp = send_file(
+            xlsx_buf,
+            as_attachment=True,
+            download_name=f"PGU_data_{stamp}.xlsx",
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+        return resp
+
+    @app.route("/backup/files")
+    @admin_required
+    def backup_files():
+        db = Session()
+        stamp = datetime.now().strftime("%Y%m%d_%H%M")
+        zip_buf = BytesIO()
+        pdf_n = ppt_n = 0
+        with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for name in ("hq_settings.json", "periods.json"):
+                path = INSTANCE_DIR / name
+                if path.exists():
+                    zf.write(path, name)
+            if STAMP_PATH.exists():
+                zf.write(STAMP_PATH, f"hq/{STAMP_PATH.name}")
+            if MASTER_JSON.exists():
+                zf.write(MASTER_JSON, MASTER_JSON.name)
+            if PDF_DIR.exists():
+                for path in sorted(PDF_DIR.iterdir()):
+                    if path.name.startswith("_") or not path.is_file():
+                        continue
+                    if path.suffix.lower() == ".pdf":
+                        zf.write(path, f"invoices_pdf/{path.name}")
+                        pdf_n += 1
+                    elif path.suffix.lower() == ".pptx":
+                        zf.write(path, f"invoices_ppt/{path.name}")
+                        ppt_n += 1
+        zip_buf.seek(0)
+        log_action(
+            db,
+            "backup",
+            stamp,
+            "BACKUP_FILES",
+            f"pdf={pdf_n} ppt={ppt_n}",
+        )
+        db.commit()
+        resp = send_file(
+            zip_buf,
+            as_attachment=True,
+            download_name=f"PGU_files_{stamp}.zip",
+            mimetype="application/zip",
+        )
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+        return resp
+
     return app
 
 
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
+    import socket
+    import sys
+
+    host = "0.0.0.0"
+    port = 5000
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.settimeout(0.5)
+        in_use = probe.connect_ex(("127.0.0.1", port)) == 0
+    if in_use:
+        print(
+            f"Port {port} is already in use. Stop the other python app.py process and retry.\n"
+            f"포트 {port}가 이미 사용 중입니다. 다른 Flask 창을 종료한 뒤 다시 실행하세요.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    print(f"Database: {Config.SQLALCHEMY_DATABASE_URI.split('://', 1)[0]}")
+    app.run(host=host, port=port, debug=True, use_reloader=False)

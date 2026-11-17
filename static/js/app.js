@@ -168,12 +168,15 @@ function bindBulkInvoiceActions() {
 }
 
 function pguParseKrw(value) {
-  return Number(String(value || "").replace(/[^\d-]/g, "")) || 0;
+  const n = Number(String(value || "").replace(/,/g, "").replace(/[^\d.-]/g, ""));
+  return Number.isFinite(n) ? n : 0;
 }
 
 function pguFormatKrw(value) {
   const n = pguParseKrw(value);
-  return n ? n.toLocaleString("en-US") : "";
+  if (!n) return "";
+  if (Number.isInteger(n)) return n.toLocaleString("en-US");
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function bindKrwInputs(root) {

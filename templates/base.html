@@ -56,6 +56,9 @@
       <a class="nav-item {% if request.endpoint == 'logs' %}active{% endif %}" href="{{ url_for('logs') }}">
         <i class="bi bi-clock-history"></i> {{ t('logs') }}
       </a>
+      <a class="nav-item {% if request.endpoint and request.endpoint.startswith('backup') %}active{% endif %}" href="{{ url_for('backup') }}">
+        <i class="bi bi-download"></i> {{ t('backup') }}
+      </a>
       {% else %}
       <a class="nav-item {% if request.endpoint and request.endpoint.startswith('invoice') %}active{% endif %}" href="{{ url_for('invoices') }}">
         <i class="bi bi-inbox"></i> {{ t('inbox') }}

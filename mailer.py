@@ -2,6 +2,7 @@
 
 from datetime import date, datetime
 from base64 import b64encode
+from decimal import Decimal, ROUND_HALF_UP
 from html import escape
 from io import BytesIO
 from pathlib import Path
@@ -121,7 +122,16 @@ def invoice_mail_context(invoice) -> dict[str, str]:
     if getattr(invoice, "period_start", None) and getattr(invoice, "period_end", None):
         period = f"{invoice.period_start.strftime('%Y-%m-%d')} ~ {invoice.period_end.strftime('%Y-%m-%d')}"
     amount_fx = float(getattr(invoice, "amount_fx", 0) or 0)
-    amount_krw = int(getattr(invoice, "amount_krw", 0) or 0)
+    try:
+        amount_krw = Decimal(str(getattr(invoice, "amount_krw", 0) or 0)).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+    except Exception:
+        amount_krw = Decimal("0.00")
+    if amount_krw == amount_krw.to_integral():
+        amount_krw_text = f"{int(amount_krw):,}"
+    else:
+        amount_krw_text = f"{amount_krw:,.2f}"
     billed_name = (getattr(invoice, "billed_name", None) or "").strip()
     billed_code = (getattr(invoice, "billed_code", None) or "").strip()
     return {
@@ -133,7 +143,7 @@ def invoice_mail_context(invoice) -> dict[str, str]:
         "qty": str(getattr(invoice, "qty", "") or ""),
         "amount": f"{amount_fx:,.2f}",
         "currency": getattr(invoice, "currency", "") or "",
-        "amount_krw": f"{amount_krw:,}",
+        "amount_krw": amount_krw_text,
         "portal_url": portal_url(),
     }
 

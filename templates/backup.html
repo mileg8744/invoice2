@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block page_title %}{{ t('backup') }}{% endblock %}
+{% block content %}
+<section class="card-panel" style="max-width:860px">
+  <div class="section-head">
+    <h2>{{ t('backup') }}</h2>
+  </div>
+  <p class="muted">{{ t('backup_help') }}</p>
+  <div class="table-responsive mb-4">
+    <table class="table table-clean">
+      <thead>
+        <tr>
+          <th>{{ t('backup_includes') }}</th>
+          <th class="text-end">{{ t('backup_count') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>{{ t('subsidiaries') }}</td><td class="text-end">{{ counts.subsidiaries }}</td></tr>
+        <tr><td>{{ t('trainings') }}</td><td class="text-end">{{ counts.trainings }}</td></tr>
+        <tr><td>{{ t('invoices') }}</td><td class="text-end">{{ counts.invoices }}</td></tr>
+        <tr><td>{{ t('items') }} · {{ t('learner_roster') }}</td><td class="text-end">{{ counts.items }}</td></tr>
+        <tr><td>{{ t('hq_settings') }}</td><td class="text-end">{% if has_settings %}1{% else %}0{% endif %}</td></tr>
+        <tr><td>{{ t('logs') }}</td><td class="text-end">{{ counts.logs }}</td></tr>
+        <tr><td>{{ t('download_pdf') }}</td><td class="text-end">{{ counts.pdfs }}</td></tr>
+        <tr><td>{{ t('download_ppt') }}</td><td class="text-end">{{ counts.ppts }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul class="muted mb-4">
+    <li>{{ t('backup_excel') }}</li>
+    {% if has_settings %}<li>{{ t('backup_settings') }}</li>{% endif %}
+    {% if has_stamp %}<li>{{ t('backup_stamp') }}</li>{% endif %}
+    {% if has_master %}<li>{{ t('backup_master_json') }}</li>{% endif %}
+    <li>{{ t('backup_pdfs') }}</li>
+  </ul>
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn btn-navy" href="{{ url_for('backup_download') }}"><i class="bi bi-file-earmark-excel"></i> {{ t('backup_excel_download') }}</a>
+    <a class="btn btn-outline-navy" href="{{ url_for('backup_files') }}"><i class="bi bi-file-earmark-zip"></i> {{ t('backup_files_download') }}</a>
+  </div>
+</section>
+{% endblock %}

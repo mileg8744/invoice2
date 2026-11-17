@@ -32,7 +32,7 @@
       </div>
       <div class="col-md-6">
         <label class="form-label">{{ t('unit_krw_usd') }}</label>
-        <input class="form-control js-krw" type="text" inputmode="numeric" name="unit_price_krw" value="{{ '{:,}'.format(row.unit_price_krw) if row else '0' }}" required>
+        <input class="form-control js-krw" type="text" inputmode="decimal" name="unit_price_krw" value="{{ row.unit_price_krw | krw if row else '0' }}" required>
         <div class="money-dual unit-fx-live">
           <div class="usd js-fx-cell" id="unitUsdLive" data-fx-krw="0">{{ t('fx_need_rate') }}</div>
           <div class="krw">KRW <b id="unitKrwLive">0</b></div>
@@ -113,9 +113,10 @@
     const rate = Number(rateEl?.value || 0);
     const currency = curEl?.value || "USD";
     const fmtFx = (n) => window.pguFormatFx ? window.pguFormatFx(n, currency) : (currency + " " + Number(n || 0).toFixed(2));
-    document.getElementById("previewKrw").textContent = "KRW " + krw.toLocaleString();
-    document.getElementById("previewUnitKrw").textContent = "KRW " + unit.toLocaleString();
-    document.getElementById("unitKrwLive").textContent = unit.toLocaleString();
+    const fmtKrw = (n) => window.pguFormatKrw ? (window.pguFormatKrw(n) || "0") : Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
+    document.getElementById("previewKrw").textContent = "KRW " + fmtKrw(krw);
+    document.getElementById("previewUnitKrw").textContent = "KRW " + fmtKrw(unit);
+    document.getElementById("unitKrwLive").textContent = fmtKrw(unit);
     const unitUsdEl = document.getElementById("unitUsdLive");
     if (unitUsdEl) unitUsdEl.setAttribute("data-fx-krw", String(unit));
     if (!rate) {

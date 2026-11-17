@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+from decimal import Decimal
+
 from sqlalchemy import (
     Boolean,
     Date,
@@ -74,7 +76,7 @@ class Training(Base):
     start_date: Mapped[datetime] = mapped_column(Date, nullable=False)
     end_date: Mapped[datetime] = mapped_column(Date, nullable=False)
     instructor: Mapped[str] = mapped_column(String(100), nullable=False)
-    unit_price_krw: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_price_krw: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     learner_count: Mapped[int] = mapped_column(Integer, default=0)
     session_no: Mapped[int] = mapped_column(Integer, default=0)
     learners: Mapped[str] = mapped_column(Text, default="")
@@ -97,8 +99,8 @@ class Invoice(Base):
     period_end: Mapped[datetime] = mapped_column(Date, nullable=False)
     instructor: Mapped[str] = mapped_column(String(100), default="")
     qty: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    unit_price_krw: Mapped[int] = mapped_column(Integer, nullable=False)
-    amount_krw: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_price_krw: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    amount_krw: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     exchange_rate: Mapped[float] = mapped_column(Float, nullable=False)
     rate_date: Mapped[datetime] = mapped_column(Date, nullable=False)
@@ -140,8 +142,8 @@ class InvoiceItem(Base):
     period_start: Mapped[datetime | None] = mapped_column(Date, nullable=True)
     period_end: Mapped[datetime | None] = mapped_column(Date, nullable=True)
     qty: Mapped[int] = mapped_column(Integer, default=1)
-    unit_price_krw: Mapped[int] = mapped_column(Integer, nullable=False)
-    amount_krw: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_price_krw: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    amount_krw: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
 
     invoice = relationship("Invoice", back_populates="items")
 

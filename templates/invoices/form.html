@@ -216,7 +216,7 @@
           </div>
           <div class="col-md-2">
             <label class="form-label">{{ t('unit_krw') }}</label>
-            <input class="form-control item-unit js-krw" type="text" inputmode="numeric" name="item_unit_price_krw" value="${Number(unit || 0).toLocaleString('en-US')}" required>
+            <input class="form-control item-unit js-krw" type="text" inputmode="decimal" name="item_unit_price_krw" value="${window.pguFormatKrw ? (window.pguFormatKrw(unit) || '0') : Number(unit || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}" required>
           </div>
           <div class="col-md-2">
             <label class="form-label">{{ t('unit_us') }}</label>
@@ -252,7 +252,7 @@
   }
 
   function catalogLabel(tr) {
-    const krw = Number(tr.unit_price_krw || 0).toLocaleString();
+    const krw = window.pguFormatKrw ? (window.pguFormatKrw(tr.unit_price_krw) || "0") : Number(tr.unit_price_krw || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
     const halves = {
       1: {{ t('half_1_short') | tojson }},
       2: {{ t('half_2_short') | tojson }},
@@ -413,14 +413,14 @@
         usdEl.value = rate ? moneyFx(unit).toFixed(2) : '';
       }
       const line = qty * unit;
-      el.querySelector('.item-line-krw').textContent = line.toLocaleString();
+      el.querySelector('.item-line-krw').textContent = window.pguFormatKrw ? (window.pguFormatKrw(line) || '0') : line.toLocaleString('en-US', { maximumFractionDigits: 2 });
       const fxEl = el.querySelector('.item-line-fx');
       const fxLabel = el.querySelector('.item-line-fx-label');
       if (fxLabel) fxLabel.textContent = currency;
       if (fxEl) fxEl.textContent = rate ? fmtFx(moneyFx(line)) : emptyFx;
       krw += line;
     });
-    document.getElementById('previewKrw').textContent = krw.toLocaleString();
+    document.getElementById('previewKrw').textContent = window.pguFormatKrw ? (window.pguFormatKrw(krw) || '0') : krw.toLocaleString('en-US', { maximumFractionDigits: 2 });
     document.getElementById('previewFx').textContent = rate ? fmtFx(moneyFx(krw)) : emptyFx;
   }
 
